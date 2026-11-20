@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Physical vibe coding: build checklists</title>
+<style>
+  :root {
+    --paper: #F4F5F1;
+    --surface: #FFFFFF;
+    --ink: #1D2630;
+    --muted: #566270;
+    --rule: #CCD1C9;
+    --go: #2B7A57;
+    --gate: #8A5A00;
+    --gate-bg: #FBF1D9;
+    --bad: #A8322A;
+    --mid: #9A6700;
+    --low: #566270;
+    --code-bg: #E6EAE3;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #12171C;
+      --surface: #1A2128;
+      --ink: #E4E9E5;
+      --muted: #97A2AB;
+      --rule: #2D373F;
+      --go: #5CC495;
+      --gate: #E3B04B;
+      --gate-bg: #2A2414;
+      --bad: #EE8A80;
+      --mid: #E3B04B;
+      --low: #97A2AB;
+      --code-bg: #242D35;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 18px 80px; }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 700; line-height: 1.2; }
+  h1 { font-size: 2rem; margin: 0 0 6px; }
+  h2 { font-size: 1.5rem; margin: 0 0 6px; }
+  h3 { font-size: 1.15rem; margin: 0 0 4px; }
+  p { margin: 0 0 12px; max-width: 70ch; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .sub { color: var(--muted); margin-bottom: 22px; }
+
+  .rules {
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 0 6px;
+    margin-bottom: 26px;
+  }
+  .rules ol { margin: 0 0 8px; padding-left: 1.3em; max-width: 70ch; }
+  .rules li { margin-bottom: 6px; }
+
+  nav[role="tablist"] {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  nav button {
+    flex: 0 0 auto;
+    font: inherit;
+    font-size: 0.92rem;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  nav button[aria-selected="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--go); outline-offset: 2px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .progress-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 22px; }
+  .bar { flex: 1; height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--go); }
+  .count { font-size: 0.88rem; color: var(--muted); white-space: nowrap; }
+  .reset {
+    font: inherit; font-size: 0.85rem; color: var(--muted);
+    background: none; border: 1px solid var(--rule); border-radius: 6px;
+    padding: 4px 10px; cursor: pointer;
+  }
+
+  .phase { margin: 0 0 28px; padding-left: 18px; border-left: 3px solid var(--rule); }
+  .phase .intro { color: var(--muted); font-size: 0.95rem; margin-bottom: 10px; }
+  .phase ul { list-style: none; margin: 0; padding: 0; }
+  .phase li { margin: 0 0 4px; }
+  .phase label {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 8px;
+    padding: 5px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    max-width: 72ch;
+  }
+  .phase label:hover { background: color-mix(in srgb, var(--rule) 40%, transparent); }
+  input[type="checkbox"] { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--go); }
+  input[type="checkbox"]:checked + span { color: var(--muted); }
+
+  .gate {
+    margin-top: 10px;
+    background: var(--gate-bg);
+    border: 1px solid var(--gate);
+    border-radius: 8px;
+    padding: 4px 8px;
+    max-width: 72ch;
+  }
+  .gate label { padding: 6px 2px; }
+  .gate .gate-title { font-weight: 700; color: var(--gate); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.93rem; margin: 10px 0 16px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 700; background: var(--surface); }
+  .tablewrap { overflow-x: auto; }
+  td.sev { font-weight: 700; white-space: nowrap; border-left: 4px solid var(--low); }
+  td.sev.high { border-left-color: var(--bad); color: var(--bad); }
+  td.sev.medium { border-left-color: var(--mid); color: var(--mid); }
+  td.sev.low { border-left-color: var(--low); color: var(--low); }
+  .note { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; max-width: 72ch; }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    nav, .reset, .progress-row { display: none; }
+    .panel { display: block !important; page-break-before: always; }
+    .panel:first-of-type { page-break-before: auto; }
+    .phase, .gate { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Physical vibe coding: build checklists</h1>
+  <p class="sub">Handout for the workshop on vibe coding robots that run in the real world. Draft.</p>
+
+  <div class="rules">
+    <ol>
+      <li>AI output is a hypothesis. The multimeter is the experiment.</li>
+      <li>Every gate below is a measurement or a physical test, not a code review.</li>
+      <li>Safe by default: if anything stops talking, the motors stop.</li>
+    </ol>
+  </div>
+
+  <nav role="tablist" aria-label="Checklists" id="tabs"></nav>
+  <div id="panels"></div>
+
+  <section class="panel" id="panel-audit" role="tabpanel" aria-labelledby="tab-audit">
+    <h2>Audit of an AI-generated tutorial</h2>
+    <p>The reference tutorial (4WD ESP8266 car, dual TB6612, web control) looks polished and gets a lot right. That is exactly why it is a good exercise: the mistakes are quiet ones. Use it as a “find the bug before you build” task.</p>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>Severity</th><th>What the tutorial does</th><th>Why it fails in the physical world</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td class="sev high">High</td>
+          <td>Uses GPIO14 (D5) for both <code>AIN2_LEFT</code> and the ultrasonic <code>ECHO</code>, and says “that’s fine (output vs input)”.</td>
+          <td>The last <code>pinMode</code> call wins, so the pin ends up an input and the left driver’s AIN2 is never driven. The divider’s 2 kΩ to ground also loads the line. The left side can’t reverse or turn properly.</td>
+          <td>One job per pin. Free a pin (for example, share one GPIO for both STBY lines) or move to an ESP32, which has more usable GPIOs.</td></tr>
+        <tr><td class="sev high">High</td>
+          <td><code>MAX_SPEED = 180</code> passed to <code>analogWrite</code>, a value that suits 8-bit Arduino boards.</td>
+          <td>On the ESP8266 core the default PWM range is 0 to 1023, so 180 is about 18% duty. The car is sluggish or won’t start, and the cause looks like “bad motors”.</td>
+          <td>Call <code>analogWriteRange(255)</code> or scale to the real range. Confirm by measuring the average motor voltage.</td></tr>
+        <tr><td class="sev high">High</td>
+          <td>The web app sends “forward” on press and “stop” on release as two separate requests. The firmware has no timeout.</td>
+          <td>A lost “stop” (Wi-Fi hiccup, phone locks, finger slides off the button) leaves the car driving.</td>
+          <td>Send a repeating heartbeat while a button is held. Firmware stops the motors after about 300 to 500 ms of silence.</td></tr>
+        <tr><td class="sev medium">Medium</td>
+          <td>Puts STBY on GPIO0 and GPIO2, and a driver input on GPIO15.</td>
+          <td>These are boot-strapping pins. Their level at reset decides the boot mode, so attached hardware can block boot or make outputs glitch while the board starts.</td>
+          <td>Check the pinout before assigning pins. Prefer non-strapping pins, or add pull resistors where the datasheet says so.</td></tr>
+        <tr><td class="sev medium">Medium</td>
+          <td>Runs two motors in parallel on channel A of each TB6612FNG. Channel B stays unused. Troubleshooting says “driver gets hot”.</td>
+          <td>Two stalled motors can exceed the rated 1.2 A continuous per channel. The hot driver is the symptom.</td>
+          <td>One motor per channel. Measure real stall current and do the current budget on paper first.</td></tr>
+        <tr><td class="sev medium">Medium</td>
+          <td>Returns motor ground through a mini breadboard rail with a single wire to the battery.</td>
+          <td>Breadboard contacts are not made for amps. Voltage drops and noise reset the ESP or drop Wi-Fi.</td>
+          <td>Star ground at the battery or a terminal block. Short, thick, soldered or screwed ground wires to each driver.</td></tr>
+        <tr><td class="sev medium">Medium</td>
+          <td>Two 18650 cells straight to the circuit with no switch, fuse, or reverse-polarity protection.</td>
+          <td>A short or a swapped wire turns into heat quickly. Nothing says how the cells are charged or whether they are protected cells.</td>
+          <td>Add a power switch and an inline fuse or polyfuse. Use protected cells and a proper charger.</td></tr>
+        <tr><td class="sev low">Low</td>
+          <td>Publishes the Wi-Fi access point password (<code>12345678</code>) in the tutorial.</td>
+          <td>Anyone nearby can join the car’s network and drive it.</td>
+          <td>Unique password per car, set at build time.</td></tr>
+        <tr><td class="sev low">Low</td>
+          <td><code>handleCmd</code> returns without a response if the argument is missing. Motion functions use blocking <code>delay()</code>. Uses SPIFFS and the ESP8266FS upload tool.</td>
+          <td>Clients hang, the web server stalls during moves, and SPIFFS is deprecated in favour of LittleFS. The upload plugin may not work with newer Arduino IDE versions (check).</td>
+          <td>Always send a response. Use <code>millis()</code> timing. Use LittleFS and verify the upload tooling for your IDE.</td></tr>
+        <tr><td class="sev low">Low</td>
+          <td>The ASCII power diagram contains leftover reasoning: “optional bridge … ? No – keep motor power off breadboard”.</td>
+          <td>The model’s thinking leaked into the deliverable. Labels like “Buck #1 VIN (3.3V)” confuse input and output. Nobody re-read it.</td>
+          <td>Redraw the schematic yourself. If the doc is not worth proofreading, it is not worth building from.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note"><strong>What it gets right:</strong> the 1 kΩ / 2 kΩ divider for the 5 V echo signal, setting the buck converters before connecting anything, keeping motor current off the breadboard, soft-start on the motors, and calling out polarised capacitors. Good content and bad content sit side by side, which is the skill: verify each claim on its own.</div>
+  </section>
+</div>
+
+<script>
+const fmt = s => s.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+const LISTS = [
+{
+  id: "pantilt",
+  tab: "Pan-tilt (workshop)",
+  title: "Phone-controlled pan-tilt platform (workshop build)",
+  summary: "ESP32, two servos, a pre-printed bracket, one separate 5 V servo rail. The checklist for the 2-hour build. The step-by-step version is in the workshop tutorial.",
+  phases: [
+    { name: "Paper first",
+      intro: "",
+      items: [
+        "Put the exact board, pins, servo type, and angle limits in the prompt.",
+        "Ask the AI for its assumptions and check each one (pulse range, PWM functions for your core, library needs).",
+        "Write the power budget: servo stall current, power bank rating, and where each supply comes from.",
+        "Plan separate supplies with a shared ground. The servo rail never comes from the 3V3 pin."
+      ],
+      gate: "Pin table and power budget are filled in." },
+    { name: "Wire and check",
+      intro: "",
+      items: [
+        "Wire the breadboard with the servos unplugged. Capacitor polarity checked.",
+        "Continuity-test: no short between the + and − rails, and none between a signal pin and the + rail.",
+        "Power up in steps: ESP32 on USB, then the servo rail. Measure 3V3 and 5 V."
+      ],
+      gate: "3V3 and the 5 V rail read as expected, and nothing is warm." },
+    { name: "Read the AI’s code",
+      intro: "",
+      items: [
+        "Pins match the table. PWM is 50 Hz and compiles on your core.",
+        "Limits are enforced in firmware, and movement is slew-limited.",
+        "There is a failsafe that returns to centre when commands stop.",
+        "Wi-Fi name is unique and the default password is changed."
+      ],
+      gate: "The page loads from your phone and shows the firmware’s limits." },
+    { name: "Centre, fit, calibrate",
+      intro: "",
+      items: [
+        "Servos go to the centre first. Fit the horns only after that.",
+        "Move slowly to each end and listen. Buzzing means a stop.",
+        "Set the limits at least 10° inside the stops, then re-flash."
+      ],
+      gate: "Both sliders run end to end with no buzzing or strain." },
+    { name: "Break it on purpose",
+      intro: "",
+      items: [
+        "Turn off the phone’s Wi-Fi and check the platform returns to centre.",
+        "Reset the board and check it waits at centre.",
+        "Send an out-of-range angle and check the firmware clamps it.",
+        "Write down one thing the AI got wrong."
+      ],
+      gate: "Cut the link and it returns to centre. Reboot and it stays at centre." }
+  ]
+},
+{
+  id: "camera",
+  tab: "Camera robot (vision)",
+  title: "Robot camera with computer vision (starter checklist)",
+  summary: "The short version. A robot that sees something and reacts to it. Build it on the pan-tilt platform by adding a camera.",
+  phases: [
+    { name: "Decide",
+      intro: "",
+      items: [
+        "Write the task in one sentence and add one number, for example “follow the red ball within 2 m at 10 frames per second”.",
+        "Choose where the vision runs (on the board, a small computer, or your laptop). Start with the simplest method, such as colour before a neural network.",
+        "Decide what the robot does when it sees nothing. The answer is: stop."
+      ],
+      gate: "Task, number, and default behaviour are written down." },
+    { name: "Build",
+      intro: "",
+      items: [
+        "Power the camera board separately from the motors, with a shared ground.",
+        "Mount the camera low and steady, and take a test photo at working distance.",
+        "Keep the camera cable away from the motor wires."
+      ],
+      gate: "The test photo is sharp, and the board stays on when the motors start at full throttle." },
+    { name: "Test",
+      intro: "",
+      items: [
+        "Run your code on recorded video first. Check it finds the target in your room’s light.",
+        "The robot stops if no new frame arrives, or if the target is lost.",
+        "Don’t rely on the camera alone near people. Keep speed low, and tell people when a camera is running."
+      ],
+      gate: "Cover the camera and the robot stops." }
+  ]
+},
+{
+  id: "agent",
+  tab: "Agentic sensor robot",
+  title: "Robot sensor with agentic capabilities (starter checklist)",
+  summary: "The short version. An AI agent reads sensors and decides what the robot does next. Build it on the pan-tilt platform by adding a distance sensor and a few tools.",
+  phases: [
+    { name: "Decide",
+      intro: "",
+      items: [
+        "Split the jobs: the agent chooses what to do next, and plain code handles stopping, limits, and battery.",
+        "Give the agent only a few simple tools, such as read a sensor, drive for a short time, and stop.",
+        "Decide what happens when the agent or the network is gone. The answer is: stop."
+      ],
+      gate: "Safety rules live in the robot’s code, not in the prompt." },
+    { name: "Sensors",
+      intro: "",
+      items: [
+        "Check each sensor once against something you trust (a ruler, a thermometer).",
+        "Flag bad readings (out of range, frozen, missing) and tell the agent.",
+        "Send units and a timestamp with every reading."
+      ],
+      gate: "Every sensor has been checked against a reference." },
+    { name: "Test",
+      intro: "",
+      items: [
+        "The robot’s code limits every command and ends it by itself after a short time.",
+        "Replay recorded sensor data, read the agent’s decisions, and run the same scenario a few times.",
+        "Treat text the robot reads from the world (signs, QR codes, web pages) as untrusted. Keep a kill switch."
+      ],
+      gate: "Unplug the network and the robot stops. Send a nonsense command and the robot stays safe." }
+  ]
+},
+{
+  id: "template",
+  tab: "Your own project",
+  title: "Template for any physical vibe-coding project",
+  summary: "Six questions that work for any build. Copy the structure, then add the phases your project needs.",
+  phases: [
+    { name: "Define",
+      intro: "",
+      items: [
+        "Describe the task in one sentence.",
+        "Set a success measure with a number.",
+        "Name the worst thing it can do, and who it could hurt.",
+        "Choose the default behaviour at power-up, link loss, and fault."
+      ],
+      gate: "The worst case is known and the safe default is chosen." },
+    { name: "Facts, not guesses",
+      intro: "",
+      items: [
+        "List every component with its datasheet and the three numbers that matter: voltage, current, logic level.",
+        "Put those numbers in the prompt.",
+        "Ask the AI for its assumptions and check each one."
+      ],
+      gate: "Every number in the prompt comes from a datasheet or a measurement." },
+    { name: "Prove it on paper",
+      intro: "",
+      items: [
+        "Voltage budget, current budget, pin map, logic levels, heat.",
+        "Redraw the schematic yourself.",
+        "Plan the protection: switch, fuse, polarity, cell type."
+      ],
+      gate: "No part is asked to exceed its rating." },
+    { name: "Build",
+      intro: "",
+      items: [
+        "Print fit-test pieces before the full part.",
+        "Practise soldering on scrap, then continuity-test every joint.",
+        "Photograph the wiring before closing the enclosure."
+      ],
+      gate: "Dry-fit and continuity checks pass with no power." },
+    { name: "Prove it on the bench",
+      intro: "",
+      items: [
+        "Power up in steps, from USB only to full load.",
+        "Go from small loads to large ones.",
+        "Inject faults: cut the link, unplug a sensor, drop the voltage."
+      ],
+      gate: "Every injected fault leaves the system safe." },
+    { name: "Prove it in the field and write it down",
+      intro: "",
+      items: [
+        "Test in a safe space and start at low power.",
+        "Record what the AI got wrong.",
+        "Write the build log so a stranger can rebuild it."
+      ],
+      gate: "Someone else has rebuilt it, or could." }
+  ],
+  extraHTML: `
+    <h3>More starting points</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Project</th><th>New physical skills</th><th>A mistake AI code often makes</th></tr></thead>
+      <tbody>
+        <tr><td>Robot arm</td><td>Servo torque and current, mounting, joint limits, homing</td><td>Commands positions past the mechanical stop, and servos starve the board of current</td></tr>
+        <tr><td>Line follower</td><td>Sensor height and spacing, lighting, tuning</td><td>Uses thresholds from a different surface or light</td></tr>
+        <tr><td>Plant watering station</td><td>Waterproofing, pump driver, sensor corrosion</td><td>Leaves the pump on if the sensor fails. Add a maximum run time and fail closed.</td></tr>
+        <tr><td>Weather or air station</td><td>Sensor placement, self-heating, enclosure venting</td><td>Ignores calibration and I2C address clashes</td></tr>
+      </tbody>
+    </table></div>`
+}
+];
+
+const tabs = document.getElementById("tabs");
+const panels = document.getElementById("panels");
+
+function updateProgress(panel) {
+  const boxes = panel.querySelectorAll("input[type=checkbox]");
+  const done = [...boxes].filter(b => b.checked).length;
+  panel.querySelector(".count").textContent = done + " of " + boxes.length + " done";
+  panel.querySelector(".bar > span").style.width = (boxes.length ? (100 * done / boxes.length) : 0) + "%";
+}
+
+LISTS.forEach((L, li) => {
+  const sec = document.createElement("section");
+  sec.className = "panel";
+  sec.id = "panel-" + L.id;
+  sec.setAttribute("role", "tabpanel");
+  sec.setAttribute("aria-labelledby", "tab-" + L.id);
+
+  let html = "<h2>" + L.title + "</h2><p>" + L.summary + "</p>" +
+    '<div class="progress-row"><div class="bar"><span></span></div><span class="count"></span>' +
+    '<button class="reset" type="button">Reset</button></div>';
+
+  L.phases.forEach((p, pi) => {
+    html += '<div class="phase"><h3>Phase ' + (pi + 1) + ": " + p.name + "</h3>";
+    if (p.intro) html += '<p class="intro">' + p.intro + "</p>";
+    html += "<ul>";
+    p.items.forEach((it, ii) => {
+      const id = L.id + "-" + pi + "-" + ii;
+      html += '<li><label for="' + id + '"><input type="checkbox" id="' + id + '"><span>' + fmt(it) + "</span></label></li>";
+    });
+    html += "</ul>";
+    if (p.gate) {
+      const gid = L.id + "-" + pi + "-gate";
+      html += '<div class="gate"><label for="' + gid + '"><input type="checkbox" id="' + gid + '"><span><span class="gate-title">Gate: </span>' + fmt(p.gate) + "</span></label></div>";
+    }
+    html += "</div>";
+  });
+  if (L.extraHTML) html += L.extraHTML;
+  sec.innerHTML = html;
+  panels.appendChild(sec);
+
+  sec.addEventListener("change", () => updateProgress(sec));
+  sec.querySelector(".reset").addEventListener("click", () => {
+    sec.querySelectorAll("input[type=checkbox]").forEach(b => b.checked = false);
+    updateProgress(sec);
+  });
+  updateProgress(sec);
+});
+
+// move the static audit panel into the panels container so all panels are siblings
+panels.appendChild(document.getElementById("panel-audit"));
+
+const ALL = [...LISTS.map(L => ({ id: L.id, tab: L.tab })), { id: "audit", tab: "Audit of the AI tutorial" }];
+
+function show(id) {
+  ALL.forEach(t => {
+    document.getElementById("panel-" + t.id).classList.toggle("active", t.id === id);
+    const b = document.getElementById("tab-" + t.id);
+    b.setAttribute("aria-selected", t.id === id ? "true" : "false");
+    b.tabIndex = t.id === id ? 0 : -1;
+  });
+}
+
+ALL.forEach(t => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.id = "tab-" + t.id;
+  b.setAttribute("role", "tab");
+  b.setAttribute("aria-controls", "panel-" + t.id);
+  b.textContent = t.tab;
+  b.addEventListener("click", () => show(t.id));
+  b.addEventListener("keydown", e => {
+    const i = ALL.findIndex(x => x.id === t.id);
+    let n = null;
+    if (e.key === "ArrowRight") n = (i + 1) % ALL.length;
+    if (e.key === "ArrowLeft") n = (i - 1 + ALL.length) % ALL.length;
+    if (n !== null) { show(ALL[n].id); document.getElementById("tab-" + ALL[n].id).focus(); }
+  });
+  tabs.appendChild(b);
+});
+show("pantilt");
+</script>
+</body>
+</html>
