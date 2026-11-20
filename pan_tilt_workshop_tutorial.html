@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build a phone-controlled pan-tilt platform in 2 hours (v3)</title>
+<style>
+  :root {
+    --paper:#F4F5F1; --surface:#FFFFFF; --ink:#1D2630; --muted:#566270; --rule:#CCD1C9;
+    --go:#2B7A57; --gate:#8A5A00; --gate-bg:#FBF1D9; --bad:#A8322A; --code-bg:#E6EAE3;
+    --pre-bg:#17202A; --pre-ink:#E4E9E5;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#12171C; --surface:#1A2128; --ink:#E4E9E5; --muted:#97A2AB; --rule:#2D373F;
+      --go:#5CC495; --gate:#E3B04B; --gate-bg:#2A2414; --bad:#EE8A80; --code-bg:#242D35;
+      --pre-bg:#0B1015; --pre-ink:#E4E9E5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+         font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; line-height:1.55; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 18px 80px; }
+  h1,h2,h3 { font-family: Georgia,"Times New Roman",serif; line-height:1.2; }
+  h1 { font-size:2rem; margin:0 0 6px; }
+  h2 { font-size:1.45rem; margin:38px 0 8px; padding-top:14px; border-top:2px solid var(--ink); }
+  h3 { font-size:1.1rem; margin:22px 0 6px; }
+  p, li { max-width: 72ch; }
+  p { margin:0 0 12px; }
+  .sub { color:var(--muted); }
+  code { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.88em;
+         background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--pre-bg); color:var(--pre-ink); padding:14px 16px; border-radius:8px;
+        overflow-x:auto; font-size:.8rem; line-height:1.45; margin:8px 0 14px; white-space:pre; }
+  pre.wrap-text { white-space:pre-wrap; }
+  pre code { background:none; padding:0; font-size:inherit; }
+  table { width:100%; border-collapse:collapse; font-size:.93rem; margin:8px 0 16px; }
+  th,td { text-align:left; vertical-align:top; padding:8px 10px; border-bottom:1px solid var(--rule); }
+  th { background:var(--surface); }
+  .tablewrap { overflow-x:auto; }
+  ul.check { list-style:none; padding:0; margin:0 0 12px; }
+  ul.check li { margin-bottom:4px; }
+  label { display:grid; grid-template-columns:22px 1fr; gap:8px; padding:5px 4px; border-radius:6px; cursor:pointer; }
+  label:hover { background: color-mix(in srgb, var(--rule) 40%, transparent); }
+  input[type=checkbox] { width:18px; height:18px; margin:3px 0 0; accent-color:var(--go); }
+  input[type=checkbox]:checked + span { color:var(--muted); }
+  .gate { background:var(--gate-bg); border:1px solid var(--gate); border-radius:8px; padding:4px 8px; max-width:72ch; margin:10px 0 0; }
+  .gate b { color:var(--gate); }
+  .note { background:var(--surface); border:1px solid var(--rule); border-radius:8px; padding:12px 14px; max-width:72ch; margin:12px 0; }
+  .warn { border-left:5px solid var(--bad); }
+  .copy { font:inherit; font-size:.85rem; color:var(--ink); background:var(--surface);
+          border:1px solid var(--rule); border-radius:6px; padding:4px 10px; cursor:pointer; }
+  button:focus-visible, input:focus-visible { outline:3px solid var(--go); outline-offset:2px; }
+  svg { width:100%; height:auto; max-width:720px; display:block; margin:10px 0; }
+  svg .box { fill:var(--surface); stroke:var(--ink); stroke-width:1.5; }
+  svg .wire { stroke:var(--ink); stroke-width:1.5; fill:none; }
+  svg .gnd { stroke:var(--muted); stroke-width:1.5; fill:none; stroke-dasharray:5 4; }
+  svg text { fill:var(--ink); font-family:system-ui,sans-serif; font-size:13px; }
+  svg text.small { fill:var(--muted); font-size:11.5px; }
+  @media print { body{background:#fff;color:#000} .copy{display:none} h2{page-break-after:avoid} pre,.gate,.note{break-inside:avoid} }
+
+  img.figure { width:100%; max-width:860px; height:auto; display:block; margin:10px 0; border:1px solid var(--rule); border-radius:8px; background:#fff; }
+  .toolbar { margin:14px 0 4px; }
+  .tool { font:inherit; font-size:.85rem; color:var(--ink); background:var(--surface); border:1px solid var(--rule); border-radius:6px; padding:4px 10px; cursor:pointer; }
+  details > summary { cursor:pointer; list-style:none; }
+  details > summary::-webkit-details-marker { display:none; }
+  details > summary::before { content:"\25B8"; display:inline-block; width:1.1em; color:var(--muted); font-size:.9em; transition:transform .15s; }
+  details[open] > summary::before { transform:rotate(90deg); }
+  details.sec { border-top:2px solid var(--ink); margin-top:26px; padding-top:4px; }
+  details.sec > summary { font-family:Georgia,"Times New Roman",serif; font-weight:700; font-size:1.45rem; line-height:1.25; padding:10px 0; }
+  details.sec > .secbody { padding-bottom:6px; }
+  details.var, details.chk { border:1px solid var(--rule); border-radius:8px; background:var(--surface); margin:10px 0; padding:0 14px 2px; }
+  details.var > summary, details.chk > summary { font-weight:700; padding:10px 0; font-size:1rem; }
+  details.var[open] > summary, details.chk[open] > summary { border-bottom:1px solid var(--rule); margin-bottom:10px; }
+  summary:focus-visible { outline:3px solid var(--go); outline-offset:2px; border-radius:4px; }
+  @media print { .toolbar { display:none; } details.sec > summary::before, details > summary::before { display:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Build a phone-controlled pan-tilt platform in 2 hours</h1>
+  <p class="sub">Workshop tutorial, version 2 (draft). Two servos in a pre-printed bracket, a small Wi-Fi board, and a web page on your phone. ESP32 is the main choice and ESP8266 is the second choice. The firmware and web page are written by an AI. Everything around them is on you.</p>
+
+  <div class="note warn"><strong>Not yet tested on hardware.</strong> Both sketches pass a syntax check against stub headers only. Build and test one complete kit of each board type you plan to use, with the exact parts you will hand out. Check the servo pulse range, the bracket’s hard stops, the USB-C breakout, and the power-bank behaviour.</div>
+
+  <div class="toolbar"><button class="tool" type="button" id="expandAll">Expand all</button> <button class="tool" type="button" id="collapseAll">Collapse all</button></div>
+
+  <details class="sec" open>
+<summary>Choose your board</summary>
+<div class="secbody">
+  <div class="tablewrap"><table>
+    <thead><tr><th></th><th>ESP32 DevKit (main choice)</th><th>ESP8266 NodeMCU or D1 mini (second choice)</th></tr></thead>
+    <tbody>
+      <tr><td>Servo signal pins</td><td>GPIO18 (pan), GPIO19 (tilt)</td><td>D1 = GPIO5 (pan), D2 = GPIO4 (tilt)</td></tr>
+      <tr><td>Servo output</td><td>Hardware PWM (<code>ledcAttach</code> on core 3.x)</td><td>Servo library (timer-based)</td></tr>
+      <tr><td>Steadiness</td><td>Steady</td><td>Servos can twitch when Wi-Fi is busy. Test this early.</td></tr>
+      <tr><td>Arduino IDE board</td><td>ESP32 Dev Module</td><td>NodeMCU 1.0, or LOLIN (WEMOS) D1 mini</td></tr>
+      <tr><td>Core</td><td>Arduino-ESP32 3.x</td><td>ESP8266 Arduino core</td></tr>
+      <tr><td>Camera add-on</td><td>Possible (ESP32-CAM, separate guide)</td><td>Not on this board</td></tr>
+      <tr><td>Sketch file</td><td><code>PanTilt_Workshop.ino</code></td><td><code>PanTilt_Workshop_ESP8266.ino</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>Wherever the guide shows two choices, the ESP32 comes first. Everything on the servo side is identical for both boards.</p>
+</div>
+</details>
+
+<details class="sec" open>
+<summary>Time plan</summary>
+<div class="secbody">
+  <div class="tablewrap"><table>
+    <thead><tr><th>Minutes</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>0 to 10</td><td>Why physical is different. Safety. Kit tour.</td></tr>
+      <tr><td>10 to 25</td><td>Paper: pin table and power budget. Write the prompt and generate firmware.</td></tr>
+      <tr><td>25 to 45</td><td>Wire the breadboard (no servos yet). Optional soldering station runs in rotation.</td></tr>
+      <tr><td>45 to 55</td><td>Gated power-up, servos unplugged</td></tr>
+      <tr><td>55 to 60</td><td>Break</td></tr>
+      <tr><td>60 to 80</td><td>Review the AI’s code, flash it, load the page from your phone</td></tr>
+      <tr><td>80 to 100</td><td>Plug in servos, centre them, fit horns and bracket, set limits, pull the Wi-Fi test</td></tr>
+      <tr><td>100 to 112</td><td>Run without the laptop, free play, and time to fix problems</td></tr>
+      <tr><td>112 to 120</td><td>Take-home checklist. Q&amp;A.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</details>
+
+<details class="sec" open>
+<summary>Kit (per person)</summary>
+<div class="secbody">
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Pre-printed pan-tilt bracket and base</td><td>Provided. See the print notes near the end.</td></tr>
+      <tr><td>ESP32 DevKit with header pins and a USB data cable</td><td>Main choice. Arduino-ESP32 core 3.x.</td></tr>
+      <tr><td>Or: ESP8266 NodeMCU or Wemos D1 mini with a USB cable</td><td>Second choice. ESP8266 core.</td></tr>
+      <tr><td>2 × micro servos (SG90 or MG90S type) with horns and screws</td><td>Rated about 4.8 to 6 V</td></tr>
+      <tr><td>USB-C power bank</td><td>Powers the servo rail only. Needs at least 1 A on the port.</td></tr>
+      <tr><td>USB-C breakout board with VBUS, GND, CC1, CC2, plus two 5.1 kΩ resistors</td><td>Gives the power bank its 5 V output. Prepared in advance. See “The 5 V source”.</td></tr>
+      <tr><td>Two leads with Dupont ends (red for VBUS, black for GND)</td><td>Prepared in advance</td></tr>
+      <tr><td>Half-size breadboard, about 10 male-to-male jumpers, two 3-pin male header strips</td><td>Servo plugs go onto the header strips</td></tr>
+      <tr><td>470 µF electrolytic capacitor (10 V or more)</td><td>Polarised</td></tr>
+      <tr><td>Multimeter (one per two people)</td><td>Used at every gate</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong>Why two power supplies?</strong> The board gets its power from your laptop’s USB cable (or later a second bank or charger). The servos get theirs from the power bank. The grounds are joined, nothing else is. This is the habit you want for anything with motors. Don’t use four fresh alkaline AA cells for servos rated 6 V: they start near 6.4 V.</div>
+</div>
+</details>
+
+<details class="sec" open>
+<summary>Safety in five lines</summary>
+<div class="secbody">
+  <ul>
+    <li>Nothing moves until you pass the gates. Fit the servo horns only after the servos are centred.</li>
+    <li>The board is a 3.3 V device. Never feed the 5 V servo rail into a pin.</li>
+    <li>The capacitor has a long leg (+) and a stripe (−). Reverse it and it can fail loudly.</li>
+    <li>Don’t force a powered servo by hand, and don’t drive it into a stop. That strips gears and heats the servo.</li>
+    <li>Unplug the power bank whenever you change wiring. Servos jump to the centre at the first power-up, so keep fingers clear.</li>
+  </ul>
+</div>
+</details>
+
+<details class="sec">
+<summary>The 5 V source: USB-C power bank and breakout board</summary>
+<div class="secbody">
+  <p>A USB-C power bank stays off until it sees a 5.1 kΩ resistor from each CC pin to ground. A bare cut cable has none, so it usually gives 0 V. A breakout board with those resistors fixes that. Instructors prepare this ahead of the workshop, and attendees only measure it.</p>
+  <img alt="USB-C breakout board diagram: VBUS to the red lead and the plus rail, GND to the black lead and the minus rail, a 5.1 kilohm resistor from CC1 to GND and another from CC2 to GND, and D plus, D minus, SBU1 and SBU2 not connected" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjgwIDgwMCIgd2lkdGg9IjEyODAiIGhlaWdodD0iODAwIiBmb250LWZhbWlseT0iQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZiI+CiAgPHRpdGxlPlVTQi1DIGJyZWFrb3V0IGJvYXJkIHdpcmluZzogVkJVUyA1IFYsIEdORCwgYW5kIHR3byA1LjEga2lsb2htIENDIHJlc2lzdG9yczwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjEyODAiIGhlaWdodD0iODAwIiBmaWxsPSIjRkZGRkZGIi8+CiAgPHRleHQgeD0iNDAiIHk9IjUwIiBmb250LXNpemU9IjI4IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMTYyMjJBIj5VU0ItQyBicmVha291dCBib2FyZDogZ2V0dGluZyA1IFYgZm9yIHRoZSBzZXJ2byByYWlsPC90ZXh0PgogIDx0ZXh0IHg9IjQwIiB5PSI3NiIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzU1NjY2RCI+VHdvIHJlc2lzdG9ycyB0ZWxsIHRoZSBwb3dlciBiYW5rIHRvIHR1cm4gb24uIE9ubHkgVkJVUyBhbmQgR05EIGFyZSB1c2VkLiBFdmVyeXRoaW5nIGVsc2Ugc3RheXMgZW1wdHkuPC90ZXh0PgoKICA8IS0tIHBvd2VyIGJhbmsgYW5kIGNhYmxlIC0tPgogIDxyZWN0IHg9IjQwIiB5PSIzMzAiIHdpZHRoPSIxNzAiIGhlaWdodD0iODAiIHJ4PSI4IiBmaWxsPSIjRUVGM0YxIiBzdHJva2U9IiMxNjIyMkEiIHN0cm9rZS13aWR0aD0iMiIvPgogIDx0ZXh0IHg9IjEyNSIgeT0iMzc2IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMTYyMjJBIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5VU0ItQyBwb3dlciBiYW5rPC90ZXh0PgogIDxsaW5lIHgxPSIyMTAiIHkxPSIzNzAiIHgyPSIzMDAiIHkyPSIzNzAiIHN0cm9rZT0iIzdBOEE5MCIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8dGV4dCB4PSIyNTUiIHk9IjM1NCIgZm9udC1zaXplPSIxMyIgZmlsbD0iIzU1NjY2RCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCLUMgY2FibGU8L3RleHQ+CgogIDwhLS0gYm9hcmQgLS0+CiAgPHJlY3QgeD0iMzMwIiB5PSIxNzAiIHdpZHRoPSI0MjAiIGhlaWdodD0iNDgwIiByeD0iMTYiIGZpbGw9IiMxRjdBNkIiLz4KICA8cmVjdCB4PSIzMDAiIHk9IjMyNSIgd2lkdGg9IjcwIiBoZWlnaHQ9IjkwIiByeD0iOCIgZmlsbD0iI0Q1RENEOSIgc3Ryb2tlPSIjMTYyMjJBIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8dGV4dCB4PSIzMzUiIHk9IjM3NiIgZm9udC1zaXplPSIxMyIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE2MjIyQSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCLUM8L3RleHQ+CiAgPGcgZmlsbD0iI0ZGRkZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCI+CiAgICA8dGV4dCB4PSI0ODAiIHk9IjM4NSIgZm9udC1zaXplPSIyMiI+VVNCLUM8L3RleHQ+CiAgICA8dGV4dCB4PSI0ODAiIHk9IjQxMiIgZm9udC1zaXplPSIyMiI+YnJlYWtvdXQ8L3RleHQ+CiAgICA8dGV4dCB4PSI0ODAiIHk9IjQzOSIgZm9udC1zaXplPSIyMiI+Ym9hcmQ8L3RleHQ+CiAgPC9nPgoKICA8IS0tIHBpbiBsYWJlbHMgLS0+CiAgPGcgZm9udC1zaXplPSIxNyIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI0ZGRkZGRiIgdGV4dC1hbmNob3I9ImVuZCI+CiAgICA8dGV4dCB4PSI3MzIiIHk9IjIxNiI+VkJVUyAoNSBWKTwvdGV4dD4KICAgIDx0ZXh0IHg9IjczMiIgeT0iMjczIj5HTkQ8L3RleHQ+CiAgICA8dGV4dCB4PSI3MzIiIHk9IjMzMCI+Q0MxPC90ZXh0PgogICAgPHRleHQgeD0iNzMyIiB5PSIzODciPkNDMjwvdGV4dD4KICAgIDx0ZXh0IHg9IjczMiIgeT0iNDQ0Ij5EKzwvdGV4dD4KICAgIDx0ZXh0IHg9IjczMiIgeT0iNTAxIj5E4oiSPC90ZXh0PgogICAgPHRleHQgeD0iNzMyIiB5PSI1NTgiPlNCVTE8L3RleHQ+CiAgICA8dGV4dCB4PSI3MzIiIHk9IjYxNSI+U0JVMjwvdGV4dD4KICA8L2c+CgogIDwhLS0gd2lyZXMgLS0+CiAgPGcgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogICAgPHBhdGggZD0iTTc1MCAyMTAgSDEwMTAiIHN0cm9rZT0iI0MwMzkyQiIvPgogICAgPHBhdGggZD0iTTc1MCAyNjcgSDEwMTAiIHN0cm9rZT0iIzE2MjIyQSIvPgogICAgPHBhdGggZD0iTTk4MCAyNjcgVjM4MSIgc3Ryb2tlPSIjMTYyMjJBIi8+CiAgICA8cGF0aCBkPSJNNzUwIDMyNCBIODAwIE05MDAgMzI0IEg5ODAiIHN0cm9rZT0iIzE2MjIyQSIvPgogICAgPHBhdGggZD0iTTc1MCAzODEgSDgwMCBNOTAwIDM4MSBIOTgwIiBzdHJva2U9IiMxNjIyMkEiLz4KICA8L2c+CiAgPGNpcmNsZSBjeD0iOTgwIiBjeT0iMjY3IiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+PGNpcmNsZSBjeD0iOTgwIiBjeT0iMzI0IiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+PGNpcmNsZSBjeD0iOTgwIiBjeT0iMzgxIiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+CgogIDwhLS0gcGluIGRvdHMgLS0+CiAgPGcgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjIiPgogICAgPGNpcmNsZSBjeD0iNzUwIiBjeT0iMjEwIiByPSI4IiBmaWxsPSIjQzAzOTJCIi8+CiAgICA8Y2lyY2xlIGN4PSI3NTAiIGN5PSIyNjciIHI9IjgiIGZpbGw9IiMxNjIyMkEiLz4KICAgIDxjaXJjbGUgY3g9Ijc1MCIgY3k9IjMyNCIgcj0iOCIgZmlsbD0iI0YyQTkwMCIvPgogICAgPGNpcmNsZSBjeD0iNzUwIiBjeT0iMzgxIiByPSI4IiBmaWxsPSIjRjJBOTAwIi8+CiAgICA8Y2lyY2xlIGN4PSI3NTAiIGN5PSI0MzgiIHI9IjgiIGZpbGw9IiM5QUE3QUMiLz4KICAgIDxjaXJjbGUgY3g9Ijc1MCIgY3k9IjQ5NSIgcj0iOCIgZmlsbD0iIzlBQTdBQyIvPgogICAgPGNpcmNsZSBjeD0iNzUwIiBjeT0iNTUyIiByPSI4IiBmaWxsPSIjOUFBN0FDIi8+CiAgICA8Y2lyY2xlIGN4PSI3NTAiIGN5PSI2MDkiIHI9IjgiIGZpbGw9IiM5QUE3QUMiLz4KICA8L2c+CgogIDwhLS0gcmVzaXN0b3JzIC0tPgogIDxnIHN0cm9rZT0iIzE2MjIyQSIgc3Ryb2tlLXdpZHRoPSIyIj4KICAgIDxyZWN0IHg9IjgwMCIgeT0iMzEwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjI4IiByeD0iNiIgZmlsbD0iI0YyRDlBNiIvPgogICAgPHJlY3QgeD0iODAwIiB5PSIzNjciIHdpZHRoPSIxMDAiIGhlaWdodD0iMjgiIHJ4PSI2IiBmaWxsPSIjRjJEOUE2Ii8+CiAgPC9nPgogIDxnIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPgogICAgPHRleHQgeD0iODUwIiB5PSIzMzAiPjUuMSBrzqk8L3RleHQ+CiAgICA8dGV4dCB4PSI4NTAiIHk9IjM4NyI+NS4xIGvOqTwvdGV4dD4KICA8L2c+CiAgPHRleHQgeD0iODUwIiB5PSIzMDAiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM1NTY2NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkNDMSB0byBHTkQ8L3RleHQ+CiAgPHRleHQgeD0iODUwIiB5PSI0MTQiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM1NTY2NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkNDMiB0byBHTkQ8L3RleHQ+CgogIDwhLS0gb3V0cHV0IHRlcm1pbmFscyAtLT4KICA8cmVjdCB4PSIxMDEwIiB5PSIxODgiIHdpZHRoPSIyMzAiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjQzAzOTJCIi8+CiAgPHRleHQgeD0iMTEyNSIgeT0iMjE2IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5yZWQgbGVhZDogdG8gKyByYWlsICg1IFYpPC90ZXh0PgogIDxyZWN0IHg9IjEwMTAiIHk9IjI0NSIgd2lkdGg9IjIzMCIgaGVpZ2h0PSI0NCIgcng9IjgiIGZpbGw9IiMxNjIyMkEiLz4KICA8dGV4dCB4PSIxMTI1IiB5PSIyNzMiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNGRkZGRkYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmJsYWNrIGxlYWQ6IHRvIOKIkiByYWlsIChHTkQpPC90ZXh0PgoKICA8IS0tIHVudXNlZCBwaW5zIC0tPgogIDxnIHN0cm9rZT0iIzlBQTdBQyIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiPgogICAgPHBhdGggZD0iTTc1OCA0MzggSDgwMCIvPjxwYXRoIGQ9Ik03NTggNDk1IEg4MDAiLz48cGF0aCBkPSJNNzU4IDU1MiBIODAwIi8+PHBhdGggZD0iTTc1OCA2MDkgSDgwMCIvPgogIDwvZz4KICA8ZyBmb250LXNpemU9IjI2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjQzAzOTJCIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIDx0ZXh0IHg9IjgxNSIgeT0iNDQ3Ij7DlzwvdGV4dD48dGV4dCB4PSI4MTUiIHk9IjUwNCI+w5c8L3RleHQ+PHRleHQgeD0iODE1IiB5PSI1NjEiPsOXPC90ZXh0Pjx0ZXh0IHg9IjgxNSIgeT0iNjE4Ij7DlzwvdGV4dD4KICA8L2c+CiAgPGcgZm9udC1zaXplPSIxNCIgZmlsbD0iIzU1NjY2RCI+CiAgICA8dGV4dCB4PSI4MzgiIHk9IjQ0MyI+bm90IGNvbm5lY3RlZDwvdGV4dD4KICAgIDx0ZXh0IHg9IjgzOCIgeT0iNTAwIj5ub3QgY29ubmVjdGVkPC90ZXh0PgogICAgPHRleHQgeD0iODM4IiB5PSI1NTciPm5vdCBjb25uZWN0ZWQ8L3RleHQ+CiAgICA8dGV4dCB4PSI4MzgiIHk9IjYxNCI+bm90IGNvbm5lY3RlZDwvdGV4dD4KICA8L2c+CgogIDwhLS0ga2V5IGlkZWEgYm94IC0tPgogIDxyZWN0IHg9IjEwMDAiIHk9IjQ0MCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyMDAiIHJ4PSI4IiBmaWxsPSIjRkZGM0QxIiBzdHJva2U9IiNGMkE5MDAiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxnIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMxNjIyMkEiPgogICAgPHRleHQgeD0iMTAxNCIgeT0iNDY4IiBmb250LXdlaWdodD0iNzAwIj5XaHkgdGhlIHJlc2lzdG9ycz88L3RleHQ+CiAgICA8dGV4dCB4PSIxMDE0IiB5PSI0OTQiPkEgVVNCLUMgcG93ZXIgYmFuayBzdGF5cyBvZmY8L3RleHQ+CiAgICA8dGV4dCB4PSIxMDE0IiB5PSI1MTUiPnVudGlsIGl0IHNlZXMgYSA1LjEga86pIHJlc2lzdG9yPC90ZXh0PgogICAgPHRleHQgeD0iMTAxNCIgeT0iNTM2Ij5vbiBlYWNoIENDIHBpbi4gV2l0aG91dCB0aGVtLDwvdGV4dD4KICAgIDx0ZXh0IHg9IjEwMTQiIHk9IjU1NyI+aXQgdXN1YWxseSBnaXZlcyAwIFYuPC90ZXh0PgogICAgPHRleHQgeD0iMTAxNCIgeT0iNTkwIiBmb250LXdlaWdodD0iNzAwIj5LZWVwIENDMSBhbmQgQ0MyIHNlcGFyYXRlLjwvdGV4dD4KICAgIDx0ZXh0IHg9IjEwMTQiIHk9IjYxMSI+TmV2ZXIgam9pbiB0aGVtIHRvZ2V0aGVyLjwvdGV4dD4KICA8L2c+CgogIDwhLS0gY2hlY2sgYm94IC0tPgogIDxyZWN0IHg9IjQwIiB5PSI0NTAiIHdpZHRoPSIyNTAiIGhlaWdodD0iMjE1IiByeD0iOCIgZmlsbD0iI0ZGRkZGRiIgc3Ryb2tlPSIjRDVEQ0Q5IiBzdHJva2Utd2lkdGg9IjIiLz4KICA8ZyBmb250LXNpemU9IjE0IiBmaWxsPSIjMTYyMjJBIj4KICAgIDx0ZXh0IHg9IjU0IiB5PSI0NzgiIGZvbnQtd2VpZ2h0PSI3MDAiPkNoZWNrIGJlZm9yZSBjb25uZWN0aW5nIHNlcnZvczwvdGV4dD4KICAgIDx0ZXh0IHg9IjU0IiB5PSI1MDQiPjEuIEJhbmsgdW5wbHVnZ2VkOiBDQzEgdG8gR05EPC90ZXh0PgogICAgPHRleHQgeD0iNTQiIHk9IjUyNCI+ICAgYW5kIENDMiB0byBHTkQgcmVhZCBhYm91dDwvdGV4dD4KICAgIDx0ZXh0IHg9IjU0IiB5PSI1NDQiPiAgIDUuMSBrzqkuPC90ZXh0PgogICAgPHRleHQgeD0iNTQiIHk9IjU3MCI+Mi4gQmFuayB1bnBsdWdnZWQ6IG5vIGJlZXA8L3RleHQ+CiAgICA8dGV4dCB4PSI1NCIgeT0iNTkwIj4gICBiZXR3ZWVuIFZCVVMgYW5kIEdORC48L3RleHQ+CiAgICA8dGV4dCB4PSI1NCIgeT0iNjE2Ij4zLiBCYW5rIHBsdWdnZWQgaW46IFZCVVMgdG88L3RleHQ+CiAgICA8dGV4dCB4PSI1NCIgeT0iNjM2Ij4gICBHTkQgcmVhZHMgYWJvdXQgNSBWLjwvdGV4dD4KICA8L2c+CgogIDx0ZXh0IHg9IjQwIiB5PSI3NzUiIGZvbnQtc2l6ZT0iMTMiIGZpbGw9IiM1NTY2NkQiPlBpbiBuYW1lcyBhbmQgcG9zaXRpb25zIHZhcnkgYmV0d2VlbiBib2FyZHMuIENoZWNrIHRoZSBzaWxrc2NyZWVuLCB0aGVuIGNvbmZpcm0gd2l0aCB0aGUgbXVsdGltZXRlciBiZWZvcmUgeW91IHBsdWcgaW4gdGhlIHNlcnZvcy48L3RleHQ+Cjwvc3ZnPgo=" class="figure">
+  <p>Saved separately as <code>usbc_breakout_wiring.png</code>.</p>
+  <h3>Prepare the breakout (instructor, before the workshop)</h3>
+  <ol>
+    <li>With the bank unplugged, measure CC1 to GND and CC2 to GND. About 5.1 kΩ on both means the resistors are fitted. An open circuit means you add them.</li>
+    <li>If needed, fit one 5.1 kΩ resistor from CC1 to GND and another from CC2 to GND. Keep them separate. Never join CC1 and CC2.</li>
+    <li>Find VBUS and GND. Some boards label VBUS as VCC, V+, or 5V. Plug in the bank and measure: with black on GND, the pad that reads about 5 V is VBUS.</li>
+    <li>Attach a red lead to VBUS and a black lead to GND. Leave D+, D−, SBU1, and SBU2 empty.</li>
+    <li>Confirm about 5 V with the red lead positive, and leave it on for a minute to check that the bank doesn’t switch itself off.</li>
+    <li>Repeat with every power-bank model you will hand out.</li>
+  </ol>
+  <h3>If the breakout doesn’t work</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Option</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>USB-C to USB-A adapter plus an old USB-A cable, cut open</td><td>The adapter usually carries the resistors. Red is 5 V and black is GND. Insulate the data wires separately and check with a multimeter.</td></tr>
+      <tr><td>4 × rechargeable AA (about 4.8 to 5.6 V) in a holder</td><td>No USB at all. Avoid fresh alkaline cells.</td></tr>
+      <tr><td>A cut USB-C cable with no resistors</td><td>Usually gives nothing. Avoid it.</td></tr>
+      <tr><td>A USB-C power-delivery trigger board</td><td>Only if it is fixed at 5 V. Higher voltages can destroy servos.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</details>
+
+<details class="sec" open>
+<summary>Step 1: Paper first (with step 2)</summary>
+<div class="secbody">
+  <p>Fill in the pin table and the power budget before anyone touches a wire. This is the work the AI can’t do for you.</p>
+  <details class="var" open>
+    <summary>Wiring diagram: ESP32 (main choice)</summary>
+  <img alt="Wiring diagram for the ESP32: laptop USB to the ESP32, GPIO18 to the pan servo signal, GPIO19 to the tilt servo signal, GND to the minus rail, USB-C power bank through the breakout board to the 5 volt rail, capacitor across the rails" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjgwIDgwMCIgd2lkdGg9IjEyODAiIGhlaWdodD0iODAwIiBmb250LWZhbWlseT0iQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZiI+CiAgPHRpdGxlPlBhbi10aWx0IHBsYXRmb3JtIHdpcmluZyBkaWFncmFtPC90aXRsZT4KICA8cmVjdCB3aWR0aD0iMTI4MCIgaGVpZ2h0PSI4MDAiIGZpbGw9IiNGRkZGRkYiLz4KICA8dGV4dCB4PSI0MCIgeT0iNTAiIGZvbnQtc2l6ZT0iMjgiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiPlBhbi10aWx0IHBsYXRmb3JtOiBob3cgZXZlcnl0aGluZyBjb25uZWN0czwvdGV4dD4KICA8dGV4dCB4PSI0MCIgeT0iNzYiIGZvbnQtc2l6ZT0iMTUiIGZpbGw9IiM1NTY2NkQiPlRoZSBFU1AzMiBpcyBwb3dlcmVkIGZyb20gdGhlIGxhcHRvcC4gVGhlIHNlcnZvcyBhcmUgcG93ZXJlZCBmcm9tIHRoZSBwb3dlciBiYW5rLiBPbmx5IHRoZSBncm91bmRzIGFyZSBzaGFyZWQuPC90ZXh0PgoKICA8IS0tIGJyZWFkYm9hcmQgLS0+CiAgPHJlY3QgeD0iMjkwIiB5PSIxMjUiIHdpZHRoPSI5MjUiIGhlaWdodD0iNDkwIiByeD0iMTQiIGZpbGw9IiNGNEY2RjUiIHN0cm9rZT0iI0Q1RENEOSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHRleHQgeD0iMzEwIiB5PSIxNTIiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM3QThBOTAiPkJyZWFkYm9hcmQ8L3RleHQ+CgogIDwhLS0gcmFpbHMgLS0+CiAgPHJlY3QgeD0iNTYwIiB5PSIxOTAiIHdpZHRoPSI2NDAiIGhlaWdodD0iMjAiIHJ4PSIxMCIgZmlsbD0iI0MwMzkyQiIvPgogIDxyZWN0IHg9IjU2MCIgeT0iNTUwIiB3aWR0aD0iNjQwIiBoZWlnaHQ9IjIwIiByeD0iMTAiIGZpbGw9IiMxNjIyMkEiLz4KICA8dGV4dCB4PSIxMjAwIiB5PSIxODAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNDMDM5MkIiIHRleHQtYW5jaG9yPSJlbmQiPisgcmFpbCAoNSBWKTwvdGV4dD4KICA8dGV4dCB4PSIxMjAwIiB5PSI1OTQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiIHRleHQtYW5jaG9yPSJlbmQiPuKIkiByYWlsIChHTkQpPC90ZXh0PgoKICA8IS0tIGxlZ2VuZCAtLT4KICA8cmVjdCB4PSI0MCIgeT0iOTYiIHdpZHRoPSIyNDAiIGhlaWdodD0iMTUyIiByeD0iOCIgZmlsbD0iI0ZGRkZGRiIgc3Ryb2tlPSIjRDVEQ0Q5IiBzdHJva2Utd2lkdGg9IjIiLz4KICA8ZyBmb250LXNpemU9IjE0IiBmaWxsPSIjMTYyMjJBIj4KICAgIDxsaW5lIHgxPSI1NiIgeTE9IjEyMiIgeDI9Ijk2IiB5Mj0iMTIyIiBzdHJva2U9IiNDMDM5MkIiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHRleHQgeD0iMTA4IiB5PSIxMjciPjUgViAoc2Vydm8gcG93ZXIpPC90ZXh0PgogICAgPGxpbmUgeDE9IjU2IiB5MT0iMTQ4IiB4Mj0iOTYiIHkyPSIxNDgiIHN0cm9rZT0iIzE2MjIyQSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48dGV4dCB4PSIxMDgiIHk9IjE1MyI+R05EPC90ZXh0PgogICAgPGxpbmUgeDE9IjU2IiB5MT0iMTc0IiB4Mj0iOTYiIHkyPSIxNzQiIHN0cm9rZT0iI0UwOEEwMCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48dGV4dCB4PSIxMDgiIHk9IjE3OSI+R1BJTzE4OiBwYW4gc2lnbmFsPC90ZXh0PgogICAgPGxpbmUgeDE9IjU2IiB5MT0iMjAwIiB4Mj0iOTYiIHkyPSIyMDAiIHN0cm9rZT0iIzJGNkRCNSIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48dGV4dCB4PSIxMDgiIHk9IjIwNSI+R1BJTzE5OiB0aWx0IHNpZ25hbDwvdGV4dD4KICAgIDxsaW5lIHgxPSI1NiIgeTE9IjIyNCIgeDI9Ijk2IiB5Mj0iMjI0IiBzdHJva2U9IiM3QThBOTAiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHRleHQgeD0iMTA4IiB5PSIyMjkiPlVTQiBjYWJsZTwvdGV4dD4KICA8L2c+CgogIDwhLS0gbGFwdG9wIGFuZCBVU0IgLS0+CiAgPHJlY3QgeD0iNDAiIHk9IjM1MiIgd2lkdGg9IjE2MCIgaGVpZ2h0PSI2MCIgcng9IjgiIGZpbGw9IiNFRUYzRjEiIHN0cm9rZT0iIzE2MjIyQSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHRleHQgeD0iMTIwIiB5PSIzNzgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxhcHRvcDwvdGV4dD4KICA8dGV4dCB4PSIxMjAiIHk9IjM5OCIgZm9udC1zaXplPSIxMyIgZmlsbD0iIzU1NjY2RCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCIHBvcnQ8L3RleHQ+CiAgPGxpbmUgeDE9IjIwMCIgeTE9IjM4MiIgeDI9IjMwMCIgeTI9IjM4MiIgc3Ryb2tlPSIjN0E4QTkwIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDx0ZXh0IHg9IjI0NSIgeT0iMzY4IiBmb250LXNpemU9IjEzIiBmaWxsPSIjNTU2NjZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5VU0IgY2FibGU8L3RleHQ+CiAgPHRleHQgeD0iMjQ1IiB5PSI0MDYiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM1NTY2NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPnBvd2VyICsgdXBsb2FkPC90ZXh0PgoKICA8IS0tIGtleSBwb2ludHMgLS0+CiAgPHJlY3QgeD0iNDAiIHk9IjQ3MCIgd2lkdGg9IjI1MCIgaGVpZ2h0PSIxMzAiIHJ4PSI4IiBmaWxsPSIjRkZGM0QxIiBzdHJva2U9IiNGMkE5MDAiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxnIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMxNjIyMkEiPgogICAgPHRleHQgeD0iNTQiIHk9IjQ5NiIgZm9udC13ZWlnaHQ9IjcwMCI+S2V5IHBvaW50czwvdGV4dD4KICAgIDx0ZXh0IHg9IjU0IiB5PSI1MjAiPuKAoiBFU1AzMjogcG93ZXJlZCBieSB0aGUgbGFwdG9wPC90ZXh0PgogICAgPHRleHQgeD0iNTQiIHk9IjU0MSI+4oCiIFNlcnZvczogcG93ZXJlZCBieSB0aGUgYmFuazwvdGV4dD4KICAgIDx0ZXh0IHg9IjU0IiB5PSI1NjIiPuKAoiBPbmx5IHRoZSBncm91bmRzIGFyZSBzaGFyZWQ8L3RleHQ+CiAgICA8dGV4dCB4PSI1NCIgeT0iNTgzIj7igKIgTmV2ZXIgZmVlZCBzZXJ2b3MgZnJvbSAzVjM8L3RleHQ+CiAgPC9nPgoKICA8IS0tIHdpcmVzIChkcmF3biBiZWZvcmUgcGFydHMgdGhhdCBzaXQgb24gdG9wKSAtLT4KICA8ZyBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgICA8IS0tIEdQSU8xOSB0aWx0IHNpZ25hbCAtLT4KICAgIDxwYXRoIGQ9Ik01MjAgMzIyIEg1NDAgVjE2MCBIOTIwIFYzODIiIHN0cm9rZT0iIzJGNkRCNSIvPgogICAgPCEtLSBHUElPMTggcGFuIHNpZ25hbCAtLT4KICAgIDxwYXRoIGQ9Ik01MjAgMzgyIEg2NjAiIHN0cm9rZT0iI0UwOEEwMCIvPgogICAgPCEtLSBFU1AzMiBHTkQgdG8gLSByYWlsIC0tPgogICAgPHBhdGggZD0iTTUyMCA0NDIgSDU0MCBWNTYwIEg1ODAiIHN0cm9rZT0iIzE2MjIyQSIvPgogICAgPCEtLSBwYW4gc3RyaXAgcG93ZXIgLS0+CiAgICA8cGF0aCBkPSJNNzIwIDM4MiBWMjAwIiBzdHJva2U9IiNDMDM5MkIiLz4KICAgIDxwYXRoIGQ9Ik03ODAgMzgyIFY1NjAiIHN0cm9rZT0iIzE2MjIyQSIvPgogICAgPCEtLSB0aWx0IHN0cmlwIHBvd2VyIC0tPgogICAgPHBhdGggZD0iTTk4MCAzODIgVjIwMCIgc3Ryb2tlPSIjQzAzOTJCIi8+CiAgICA8cGF0aCBkPSJNMTA0MCAzODIgVjU2MCIgc3Ryb2tlPSIjMTYyMjJBIi8+CiAgICA8IS0tIHBvd2VyIGJhbmsgbGVhZHMgLS0+CiAgICA8cGF0aCBkPSJNNDYwIDY5MCBINjIwIFY1NjAiIHN0cm9rZT0iIzE2MjIyQSIvPgogICAgPHBhdGggZD0iTTQ2MCA3MTUgSDEyNDAgVjIwMCBIMTIwMCIgc3Ryb2tlPSIjQzAzOTJCIi8+CiAgPC9nPgogIDwhLS0gcmFpbCBqdW5jdGlvbiBkb3RzIC0tPgogIDxnPgogICAgPGNpcmNsZSBjeD0iNzIwIiBjeT0iMjAwIiByPSI3IiBmaWxsPSIjQzAzOTJCIi8+PGNpcmNsZSBjeD0iOTgwIiBjeT0iMjAwIiByPSI3IiBmaWxsPSIjQzAzOTJCIi8+PGNpcmNsZSBjeD0iMTIwMCIgY3k9IjIwMCIgcj0iNyIgZmlsbD0iI0MwMzkyQiIvPgogICAgPGNpcmNsZSBjeD0iNTgwIiBjeT0iNTYwIiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+PGNpcmNsZSBjeD0iNjIwIiBjeT0iNTYwIiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+PGNpcmNsZSBjeD0iNzgwIiBjeT0iNTYwIiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+PGNpcmNsZSBjeD0iMTA0MCIgY3k9IjU2MCIgcj0iNyIgZmlsbD0iIzE2MjIyQSIvPgogIDwvZz4KCiAgPCEtLSBjYXBhY2l0b3IgYWNyb3NzIHJhaWxzIC0tPgogIDxnIHN0cm9rZT0iIzE2MjIyQSIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiPgogICAgPGxpbmUgeDE9IjExMzAiIHkxPSIyMTAiIHgyPSIxMTMwIiB5Mj0iMzcwIi8+CiAgICA8bGluZSB4MT0iMTExMCIgeTE9IjM3MCIgeDI9IjExNTAiIHkyPSIzNzAiLz4KICAgIDxsaW5lIHgxPSIxMTEwIiB5MT0iMzkwIiB4Mj0iMTE1MCIgeTI9IjM5MCIvPgogICAgPGxpbmUgeDE9IjExMzAiIHkxPSIzOTAiIHgyPSIxMTMwIiB5Mj0iNTUwIi8+CiAgPC9nPgogIDxjaXJjbGUgY3g9IjExMzAiIGN5PSIyMDAiIHI9IjciIGZpbGw9IiNDMDM5MkIiLz48Y2lyY2xlIGN4PSIxMTMwIiBjeT0iNTYwIiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+CiAgPGcgZm9udC1zaXplPSIxMyIgZmlsbD0iIzE2MjIyQSI+CiAgICA8dGV4dCB4PSIxMTU4IiB5PSIzNjQiIGZvbnQtd2VpZ2h0PSI3MDAiPjQ3MCDCtUY8L3RleHQ+CiAgICA8dGV4dCB4PSIxMTU4IiB5PSIzODIiPmxvbmcgbGVnOiArPC90ZXh0PgogICAgPHRleHQgeD0iMTE1OCIgeT0iNDAwIj5zdHJpcGU6IOKIkjwvdGV4dD4KICA8L2c+CgogIDwhLS0gRVNQMzIgLS0+CiAgPHJlY3QgeD0iMzAwIiB5PSIyNTAiIHdpZHRoPSIyMjAiIGhlaWdodD0iMjIwIiByeD0iMTIiIGZpbGw9IiMxRjdBNkIiLz4KICA8dGV4dCB4PSIzODUiIHk9IjM0MCIgZm9udC1zaXplPSIyNiIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI0ZGRkZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RVNQMzI8L3RleHQ+CiAgPHRleHQgeD0iMzg1IiB5PSIzNjQiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNGRkZGRkYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRldktpdDwvdGV4dD4KICA8ZyBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0iZW5kIj4KICAgIDx0ZXh0IHg9IjUwNCIgeT0iMzI3Ij5HUElPMTk8L3RleHQ+CiAgICA8dGV4dCB4PSI1MDQiIHk9IjM4NyI+R1BJTzE4PC90ZXh0PgogICAgPHRleHQgeD0iNTA0IiB5PSI0NDciPkdORDwvdGV4dD4KICA8L2c+CiAgPGcgZmlsbD0iI0YyQTkwMCIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjIiPgogICAgPGNpcmNsZSBjeD0iNTIwIiBjeT0iMzIyIiByPSI3Ii8+PGNpcmNsZSBjeD0iNTIwIiBjeT0iMzgyIiByPSI3Ii8+PGNpcmNsZSBjeD0iNTIwIiBjeT0iNDQyIiByPSI3Ii8+CiAgPC9nPgoKICA8IS0tIHNlcnZvIGhlYWRlciBzdHJpcHMgLS0+CiAgPHJlY3QgeD0iNjM1IiB5PSIzMzUiIHdpZHRoPSIxNzAiIGhlaWdodD0iOTAiIHJ4PSI4IiBmaWxsPSIjMTYyMjJBIi8+CiAgPHRleHQgeD0iNjQ1IiB5PSIzNTQiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNGRkZGRkYiPlBhbiBzZXJ2bzwvdGV4dD4KICA8cmVjdCB4PSI4OTUiIHk9IjMzNSIgd2lkdGg9IjE3MCIgaGVpZ2h0PSI5MCIgcng9IjgiIGZpbGw9IiMxNjIyMkEiLz4KICA8dGV4dCB4PSI5MDUiIHk9IjM1NCIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI0ZGRkZGRiI+VGlsdCBzZXJ2bzwvdGV4dD4KICA8ZyBmaWxsPSIjRjJBOTAwIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMiI+CiAgICA8Y2lyY2xlIGN4PSI2NjAiIGN5PSIzODIiIHI9IjkiLz48Y2lyY2xlIGN4PSI3MjAiIGN5PSIzODIiIHI9IjkiLz48Y2lyY2xlIGN4PSI3ODAiIGN5PSIzODIiIHI9IjkiLz4KICAgIDxjaXJjbGUgY3g9IjkyMCIgY3k9IjM4MiIgcj0iOSIvPjxjaXJjbGUgY3g9Ijk4MCIgY3k9IjM4MiIgcj0iOSIvPjxjaXJjbGUgY3g9IjEwNDAiIGN5PSIzODIiIHI9IjkiLz4KICA8L2c+CiAgPGcgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI0ZGRkZGRiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+CiAgICA8dGV4dCB4PSI2NjAiIHk9IjQxNCI+U0lHPC90ZXh0Pjx0ZXh0IHg9IjcyMCIgeT0iNDE0Ij41IFY8L3RleHQ+PHRleHQgeD0iNzgwIiB5PSI0MTQiPkdORDwvdGV4dD4KICAgIDx0ZXh0IHg9IjkyMCIgeT0iNDE0Ij5TSUc8L3RleHQ+PHRleHQgeD0iOTgwIiB5PSI0MTQiPjUgVjwvdGV4dD48dGV4dCB4PSIxMDQwIiB5PSI0MTQiPkdORDwvdGV4dD4KICA8L2c+CgogIDwhLS0gcG93ZXIgYmFuayBhbmQgYWRhcHRlciAtLT4KICA8cmVjdCB4PSI0MCIgeT0iNjQwIiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjcwIiByeD0iOCIgZmlsbD0iI0VFRjNGMSIgc3Ryb2tlPSIjMTYyMjJBIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8dGV4dCB4PSIxMjAiIHk9IjY4MCIgZm9udC1zaXplPSIxNSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE2MjIyQSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCLUMgcG93ZXIgYmFuazwvdGV4dD4KICA8bGluZSB4MT0iMjAwIiB5MT0iNjc1IiB4Mj0iMjYwIiB5Mj0iNjc1IiBzdHJva2U9IiM3QThBOTAiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHRleHQgeD0iMjMwIiB5PSI2NjMiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM1NTY2NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlVTQi1DPC90ZXh0PgogIDxyZWN0IHg9IjI2MCIgeT0iNjMwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgcng9IjgiIGZpbGw9IiNFRUYzRjEiIHN0cm9rZT0iIzE2MjIyQSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHRleHQgeD0iMzYwIiB5PSI2NzAiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlVTQi1DIGJyZWFrb3V0IGJvYXJkPC90ZXh0PgogIDx0ZXh0IHg9IjM2MCIgeT0iNjkwIiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMTYyMjJBIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj53aXRoIDUuMSBrzqkgQ0MgcmVzaXN0b3JzPC90ZXh0PgogIDx0ZXh0IHg9IjM2MCIgeT0iNzExIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNTU2NjZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5sZWFkcyBlbmQgaW4gRHVwb250IHBpbnM8L3RleHQ+CiAgPHRleHQgeD0iNDcyIiB5PSI2ODIiIGZvbnQtc2l6ZT0iMTMiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiPmJsYWNrIGxlYWQ6IEdORDwvdGV4dD4KICA8dGV4dCB4PSI0NzIiIHk9IjcwOCIgZm9udC1zaXplPSIxMyIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI0MwMzkyQiI+cmVkIGxlYWQ6IDUgVjwvdGV4dD4KCiAgPHRleHQgeD0iNDAiIHk9Ijc3NSIgZm9udC1zaXplPSIxMyIgZmlsbD0iIzU1NjY2RCI+Q2hlY2sgeW91ciBzZXJ2bydzIHdpcmUgY29sb3Vyczogb3JhbmdlIG9yIHllbGxvdyBpcyBzaWduYWwsIHJlZCBpcyA1IFYsIGJyb3duIG9yIGJsYWNrIGlzIEdORC4gVGhlIDNWMyBwaW4gaXMgbm90IHVzZWQuPC90ZXh0Pgo8L3N2Zz4K" class="figure">
+  <p>Saved separately as <code>pan_tilt_wiring_diagram.png</code>.</p>
+  </details>
+  <details class="var">
+    <summary>Wiring diagram: ESP8266 (second choice)</summary>
+  <img alt="Wiring diagram for the ESP8266: laptop USB to the ESP8266, D1 (GPIO5) to the pan servo signal, D2 (GPIO4) to the tilt servo signal, GND to the minus rail, USB-C power bank through the breakout board to the 5 volt rail, capacitor across the rails" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjgwIDgwMCIgd2lkdGg9IjEyODAiIGhlaWdodD0iODAwIiBmb250LWZhbWlseT0iQXJpYWwsIEhlbHZldGljYSwgc2Fucy1zZXJpZiI+CiAgPHRpdGxlPlBhbi10aWx0IHBsYXRmb3JtIHdpcmluZyBkaWFncmFtLCBFU1A4MjY2IHZlcnNpb248L3RpdGxlPgogIDxyZWN0IHdpZHRoPSIxMjgwIiBoZWlnaHQ9IjgwMCIgZmlsbD0iI0ZGRkZGRiIvPgogIDx0ZXh0IHg9IjQwIiB5PSI1MCIgZm9udC1zaXplPSIyOCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE2MjIyQSI+UGFuLXRpbHQgcGxhdGZvcm0gKEVTUDgyNjYgdmVyc2lvbik6IGhvdyBldmVyeXRoaW5nIGNvbm5lY3RzPC90ZXh0PgogIDx0ZXh0IHg9IjQwIiB5PSI3NiIgZm9udC1zaXplPSIxNSIgZmlsbD0iIzU1NjY2RCI+VGhlIEVTUDgyNjYgaXMgcG93ZXJlZCBmcm9tIHRoZSBsYXB0b3AuIFRoZSBzZXJ2b3MgYXJlIHBvd2VyZWQgZnJvbSB0aGUgcG93ZXIgYmFuay4gT25seSB0aGUgZ3JvdW5kcyBhcmUgc2hhcmVkLjwvdGV4dD4KCiAgPCEtLSBicmVhZGJvYXJkIC0tPgogIDxyZWN0IHg9IjI5MCIgeT0iMTI1IiB3aWR0aD0iOTI1IiBoZWlnaHQ9IjQ5MCIgcng9IjE0IiBmaWxsPSIjRjRGNkY1IiBzdHJva2U9IiNENURDRDkiIHN0cm9rZS13aWR0aD0iMiIvPgogIDx0ZXh0IHg9IjMxMCIgeT0iMTUyIiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjN0E4QTkwIj5CcmVhZGJvYXJkPC90ZXh0PgoKICA8IS0tIHJhaWxzIC0tPgogIDxyZWN0IHg9IjU2MCIgeT0iMTkwIiB3aWR0aD0iNjQwIiBoZWlnaHQ9IjIwIiByeD0iMTAiIGZpbGw9IiNDMDM5MkIiLz4KICA8cmVjdCB4PSI1NjAiIHk9IjU1MCIgd2lkdGg9IjY0MCIgaGVpZ2h0PSIyMCIgcng9IjEwIiBmaWxsPSIjMTYyMjJBIi8+CiAgPHRleHQgeD0iMTIwMCIgeT0iMTgwIiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjQzAzOTJCIiB0ZXh0LWFuY2hvcj0iZW5kIj4rIHJhaWwgKDUgVik8L3RleHQ+CiAgPHRleHQgeD0iMTIwMCIgeT0iNTk0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMTYyMjJBIiB0ZXh0LWFuY2hvcj0iZW5kIj7iiJIgcmFpbCAoR05EKTwvdGV4dD4KCiAgPCEtLSBsZWdlbmQgLS0+CiAgPHJlY3QgeD0iNDAiIHk9Ijk2IiB3aWR0aD0iMjQwIiBoZWlnaHQ9IjE1MiIgcng9IjgiIGZpbGw9IiNGRkZGRkYiIHN0cm9rZT0iI0Q1RENEOSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGcgZm9udC1zaXplPSIxNCIgZmlsbD0iIzE2MjIyQSI+CiAgICA8bGluZSB4MT0iNTYiIHkxPSIxMjIiIHgyPSI5NiIgeTI9IjEyMiIgc3Ryb2tlPSIjQzAzOTJCIiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjx0ZXh0IHg9IjEwOCIgeT0iMTI3Ij41IFYgKHNlcnZvIHBvd2VyKTwvdGV4dD4KICAgIDxsaW5lIHgxPSI1NiIgeTE9IjE0OCIgeDI9Ijk2IiB5Mj0iMTQ4IiBzdHJva2U9IiMxNjIyMkEiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHRleHQgeD0iMTA4IiB5PSIxNTMiPkdORDwvdGV4dD4KICAgIDxsaW5lIHgxPSI1NiIgeTE9IjE3NCIgeDI9Ijk2IiB5Mj0iMTc0IiBzdHJva2U9IiNFMDhBMDAiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHRleHQgeD0iMTA4IiB5PSIxNzkiPkQxIChHUElPNSk6IHBhbiBzaWduYWw8L3RleHQ+CiAgICA8bGluZSB4MT0iNTYiIHkxPSIyMDAiIHgyPSI5NiIgeTI9IjIwMCIgc3Ryb2tlPSIjMkY2REI1IiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjx0ZXh0IHg9IjEwOCIgeT0iMjA1Ij5EMiAoR1BJTzQpOiB0aWx0IHNpZ25hbDwvdGV4dD4KICAgIDxsaW5lIHgxPSI1NiIgeTE9IjIyNCIgeDI9Ijk2IiB5Mj0iMjI0IiBzdHJva2U9IiM3QThBOTAiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHRleHQgeD0iMTA4IiB5PSIyMjkiPlVTQiBjYWJsZTwvdGV4dD4KICA8L2c+CgogIDwhLS0gbGFwdG9wIGFuZCBVU0IgLS0+CiAgPHJlY3QgeD0iNDAiIHk9IjM1MiIgd2lkdGg9IjE2MCIgaGVpZ2h0PSI2MCIgcng9IjgiIGZpbGw9IiNFRUYzRjEiIHN0cm9rZT0iIzE2MjIyQSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPHRleHQgeD0iMTIwIiB5PSIzNzgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxhcHRvcDwvdGV4dD4KICA8dGV4dCB4PSIxMjAiIHk9IjM5OCIgZm9udC1zaXplPSIxMyIgZmlsbD0iIzU1NjY2RCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCIHBvcnQ8L3RleHQ+CiAgPGxpbmUgeDE9IjIwMCIgeTE9IjM4MiIgeDI9IjMwMCIgeTI9IjM4MiIgc3Ryb2tlPSIjN0E4QTkwIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDx0ZXh0IHg9IjI0NSIgeT0iMzY4IiBmb250LXNpemU9IjEzIiBmaWxsPSIjNTU2NjZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5VU0IgY2FibGU8L3RleHQ+CiAgPHRleHQgeD0iMjQ1IiB5PSI0MDYiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM1NTY2NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPnBvd2VyICsgdXBsb2FkPC90ZXh0PgoKICA8IS0tIGtleSBwb2ludHMgLS0+CiAgPHJlY3QgeD0iNDAiIHk9IjQ3MCIgd2lkdGg9IjI1MCIgaGVpZ2h0PSIxMzAiIHJ4PSI4IiBmaWxsPSIjRkZGM0QxIiBzdHJva2U9IiNGMkE5MDAiIHN0cm9rZS13aWR0aD0iMiIvPgogIDxnIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMxNjIyMkEiPgogICAgPHRleHQgeD0iNTQiIHk9IjQ5NiIgZm9udC13ZWlnaHQ9IjcwMCI+S2V5IHBvaW50czwvdGV4dD4KICAgIDx0ZXh0IHg9IjU0IiB5PSI1MjAiPuKAoiBFU1A4MjY2OiBwb3dlcmVkIGJ5IHRoZSBsYXB0b3A8L3RleHQ+CiAgICA8dGV4dCB4PSI1NCIgeT0iNTQxIj7igKIgU2Vydm9zOiBwb3dlcmVkIGJ5IHRoZSBiYW5rPC90ZXh0PgogICAgPHRleHQgeD0iNTQiIHk9IjU2MiI+4oCiIE9ubHkgdGhlIGdyb3VuZHMgYXJlIHNoYXJlZDwvdGV4dD4KICAgIDx0ZXh0IHg9IjU0IiB5PSI1ODMiPuKAoiBOZXZlciBmZWVkIHNlcnZvcyBmcm9tIDNWMzwvdGV4dD4KICA8L2c+CgogIDwhLS0gd2lyZXMgKGRyYXduIGJlZm9yZSBwYXJ0cyB0aGF0IHNpdCBvbiB0b3ApIC0tPgogIDxnIGZpbGw9Im5vbmUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDwhLS0gR1BJTzE5IHRpbHQgc2lnbmFsIC0tPgogICAgPHBhdGggZD0iTTUyMCAzMjIgSDU0MCBWMTYwIEg5MjAgVjM4MiIgc3Ryb2tlPSIjMkY2REI1Ii8+CiAgICA8IS0tIEdQSU8xOCBwYW4gc2lnbmFsIC0tPgogICAgPHBhdGggZD0iTTUyMCAzODIgSDY2MCIgc3Ryb2tlPSIjRTA4QTAwIi8+CiAgICA8IS0tIEVTUDMyIEdORCB0byAtIHJhaWwgLS0+CiAgICA8cGF0aCBkPSJNNTIwIDQ0MiBINTQwIFY1NjAgSDU4MCIgc3Ryb2tlPSIjMTYyMjJBIi8+CiAgICA8IS0tIHBhbiBzdHJpcCBwb3dlciAtLT4KICAgIDxwYXRoIGQ9Ik03MjAgMzgyIFYyMDAiIHN0cm9rZT0iI0MwMzkyQiIvPgogICAgPHBhdGggZD0iTTc4MCAzODIgVjU2MCIgc3Ryb2tlPSIjMTYyMjJBIi8+CiAgICA8IS0tIHRpbHQgc3RyaXAgcG93ZXIgLS0+CiAgICA8cGF0aCBkPSJNOTgwIDM4MiBWMjAwIiBzdHJva2U9IiNDMDM5MkIiLz4KICAgIDxwYXRoIGQ9Ik0xMDQwIDM4MiBWNTYwIiBzdHJva2U9IiMxNjIyMkEiLz4KICAgIDwhLS0gcG93ZXIgYmFuayBsZWFkcyAtLT4KICAgIDxwYXRoIGQ9Ik00NjAgNjkwIEg2MjAgVjU2MCIgc3Ryb2tlPSIjMTYyMjJBIi8+CiAgICA8cGF0aCBkPSJNNDYwIDcxNSBIMTI0MCBWMjAwIEgxMjAwIiBzdHJva2U9IiNDMDM5MkIiLz4KICA8L2c+CiAgPCEtLSByYWlsIGp1bmN0aW9uIGRvdHMgLS0+CiAgPGc+CiAgICA8Y2lyY2xlIGN4PSI3MjAiIGN5PSIyMDAiIHI9IjciIGZpbGw9IiNDMDM5MkIiLz48Y2lyY2xlIGN4PSI5ODAiIGN5PSIyMDAiIHI9IjciIGZpbGw9IiNDMDM5MkIiLz48Y2lyY2xlIGN4PSIxMjAwIiBjeT0iMjAwIiByPSI3IiBmaWxsPSIjQzAzOTJCIi8+CiAgICA8Y2lyY2xlIGN4PSI1ODAiIGN5PSI1NjAiIHI9IjciIGZpbGw9IiMxNjIyMkEiLz48Y2lyY2xlIGN4PSI2MjAiIGN5PSI1NjAiIHI9IjciIGZpbGw9IiMxNjIyMkEiLz48Y2lyY2xlIGN4PSI3ODAiIGN5PSI1NjAiIHI9IjciIGZpbGw9IiMxNjIyMkEiLz48Y2lyY2xlIGN4PSIxMDQwIiBjeT0iNTYwIiByPSI3IiBmaWxsPSIjMTYyMjJBIi8+CiAgPC9nPgoKICA8IS0tIGNhcGFjaXRvciBhY3Jvc3MgcmFpbHMgLS0+CiAgPGcgc3Ryb2tlPSIjMTYyMjJBIiBzdHJva2Utd2lkdGg9IjMiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+CiAgICA8bGluZSB4MT0iMTEzMCIgeTE9IjIxMCIgeDI9IjExMzAiIHkyPSIzNzAiLz4KICAgIDxsaW5lIHgxPSIxMTEwIiB5MT0iMzcwIiB4Mj0iMTE1MCIgeTI9IjM3MCIvPgogICAgPGxpbmUgeDE9IjExMTAiIHkxPSIzOTAiIHgyPSIxMTUwIiB5Mj0iMzkwIi8+CiAgICA8bGluZSB4MT0iMTEzMCIgeTE9IjM5MCIgeDI9IjExMzAiIHkyPSI1NTAiLz4KICA8L2c+CiAgPGNpcmNsZSBjeD0iMTEzMCIgY3k9IjIwMCIgcj0iNyIgZmlsbD0iI0MwMzkyQiIvPjxjaXJjbGUgY3g9IjExMzAiIGN5PSI1NjAiIHI9IjciIGZpbGw9IiMxNjIyMkEiLz4KICA8ZyBmb250LXNpemU9IjEzIiBmaWxsPSIjMTYyMjJBIj4KICAgIDx0ZXh0IHg9IjExNTgiIHk9IjM2NCIgZm9udC13ZWlnaHQ9IjcwMCI+NDcwIMK1RjwvdGV4dD4KICAgIDx0ZXh0IHg9IjExNTgiIHk9IjM4MiI+bG9uZyBsZWc6ICs8L3RleHQ+CiAgICA8dGV4dCB4PSIxMTU4IiB5PSI0MDAiPnN0cmlwZTog4oiSPC90ZXh0PgogIDwvZz4KCiAgPCEtLSBFU1AzMiAtLT4KICA8cmVjdCB4PSIzMDAiIHk9IjI1MCIgd2lkdGg9IjIyMCIgaGVpZ2h0PSIyMjAiIHJ4PSIxMiIgZmlsbD0iIzFGN0E2QiIvPgogIDx0ZXh0IHg9IjM2OCIgeT0iMzQwIiBmb250LXNpemU9IjIyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5FU1A4MjY2PC90ZXh0PgogIDx0ZXh0IHg9IjM2OCIgeT0iMzY0IiBmb250LXNpemU9IjEzIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Ob2RlTUNVIC8gRDEgbWluaTwvdGV4dD4KICA8ZyBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0iZW5kIj4KICAgIDx0ZXh0IHg9IjUwNCIgeT0iMzI3Ij5EMiAoR1BJTzQpPC90ZXh0PgogICAgPHRleHQgeD0iNTA0IiB5PSIzODciPkQxIChHUElPNSk8L3RleHQ+CiAgICA8dGV4dCB4PSI1MDQiIHk9IjQ0NyI+R05EPC90ZXh0PgogIDwvZz4KICA8ZyBmaWxsPSIjRjJBOTAwIiBzdHJva2U9IiNGRkZGRkYiIHN0cm9rZS13aWR0aD0iMiI+CiAgICA8Y2lyY2xlIGN4PSI1MjAiIGN5PSIzMjIiIHI9IjciLz48Y2lyY2xlIGN4PSI1MjAiIGN5PSIzODIiIHI9IjciLz48Y2lyY2xlIGN4PSI1MjAiIGN5PSI0NDIiIHI9IjciLz4KICA8L2c+CgogIDwhLS0gc2Vydm8gaGVhZGVyIHN0cmlwcyAtLT4KICA8cmVjdCB4PSI2MzUiIHk9IjMzNSIgd2lkdGg9IjE3MCIgaGVpZ2h0PSI5MCIgcng9IjgiIGZpbGw9IiMxNjIyMkEiLz4KICA8dGV4dCB4PSI2NDUiIHk9IjM1NCIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI0ZGRkZGRiI+UGFuIHNlcnZvPC90ZXh0PgogIDxyZWN0IHg9Ijg5NSIgeT0iMzM1IiB3aWR0aD0iMTcwIiBoZWlnaHQ9IjkwIiByeD0iOCIgZmlsbD0iIzE2MjIyQSIvPgogIDx0ZXh0IHg9IjkwNSIgeT0iMzU0IiBmb250LXNpemU9IjEyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjRkZGRkZGIj5UaWx0IHNlcnZvPC90ZXh0PgogIDxnIGZpbGw9IiNGMkE5MDAiIHN0cm9rZT0iI0ZGRkZGRiIgc3Ryb2tlLXdpZHRoPSIyIj4KICAgIDxjaXJjbGUgY3g9IjY2MCIgY3k9IjM4MiIgcj0iOSIvPjxjaXJjbGUgY3g9IjcyMCIgY3k9IjM4MiIgcj0iOSIvPjxjaXJjbGUgY3g9Ijc4MCIgY3k9IjM4MiIgcj0iOSIvPgogICAgPGNpcmNsZSBjeD0iOTIwIiBjeT0iMzgyIiByPSI5Ii8+PGNpcmNsZSBjeD0iOTgwIiBjeT0iMzgyIiByPSI5Ii8+PGNpcmNsZSBjeD0iMTA0MCIgY3k9IjM4MiIgcj0iOSIvPgogIDwvZz4KICA8ZyBmb250LXNpemU9IjEyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjRkZGRkZGIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIDx0ZXh0IHg9IjY2MCIgeT0iNDE0Ij5TSUc8L3RleHQ+PHRleHQgeD0iNzIwIiB5PSI0MTQiPjUgVjwvdGV4dD48dGV4dCB4PSI3ODAiIHk9IjQxNCI+R05EPC90ZXh0PgogICAgPHRleHQgeD0iOTIwIiB5PSI0MTQiPlNJRzwvdGV4dD48dGV4dCB4PSI5ODAiIHk9IjQxNCI+NSBWPC90ZXh0Pjx0ZXh0IHg9IjEwNDAiIHk9IjQxNCI+R05EPC90ZXh0PgogIDwvZz4KCiAgPCEtLSBwb3dlciBiYW5rIGFuZCBhZGFwdGVyIC0tPgogIDxyZWN0IHg9IjQwIiB5PSI2NDAiIHdpZHRoPSIxNjAiIGhlaWdodD0iNzAiIHJ4PSI4IiBmaWxsPSIjRUVGM0YxIiBzdHJva2U9IiMxNjIyMkEiIHN0cm9rZS13aWR0aD0iMiIvPgogIDx0ZXh0IHg9IjEyMCIgeT0iNjgwIiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMTYyMjJBIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5VU0ItQyBwb3dlciBiYW5rPC90ZXh0PgogIDxsaW5lIHgxPSIyMDAiIHkxPSI2NzUiIHgyPSIyNjAiIHkyPSI2NzUiIHN0cm9rZT0iIzdBOEE5MCIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8dGV4dCB4PSIyMzAiIHk9IjY2MyIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzU1NjY2RCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCLUM8L3RleHQ+CiAgPHJlY3QgeD0iMjYwIiB5PSI2MzAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIiByeD0iOCIgZmlsbD0iI0VFRjNGMSIgc3Ryb2tlPSIjMTYyMjJBIiBzdHJva2Utd2lkdGg9IjIiLz4KICA8dGV4dCB4PSIzNjAiIHk9IjY3MCIgZm9udC1zaXplPSIxNSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE2MjIyQSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+VVNCLUMgYnJlYWtvdXQgYm9hcmQ8L3RleHQ+CiAgPHRleHQgeD0iMzYwIiB5PSI2OTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNjIyMkEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPndpdGggNS4xIGvOqSBDQyByZXNpc3RvcnM8L3RleHQ+CiAgPHRleHQgeD0iMzYwIiB5PSI3MTEiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM1NTY2NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPmxlYWRzIGVuZCBpbiBEdXBvbnQgcGluczwvdGV4dD4KICA8dGV4dCB4PSI0NzIiIHk9IjY4MiIgZm9udC1zaXplPSIxMyIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE2MjIyQSI+YmxhY2sgbGVhZDogR05EPC90ZXh0PgogIDx0ZXh0IHg9IjQ3MiIgeT0iNzA4IiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjQzAzOTJCIj5yZWQgbGVhZDogNSBWPC90ZXh0PgoKICA8dGV4dCB4PSI0MCIgeT0iNzc1IiBmb250LXNpemU9IjEzIiBmaWxsPSIjNTU2NjZEIj5QaW4gbmFtZXMgYXJlIGZvciBOb2RlTUNVIGFuZCBXZW1vcyBEMSBtaW5pIGJvYXJkczogY2hlY2sgeW91ciBib2FyZCdzIGxhYmVscy4gU2Vydm8gd2lyZXM6IG9yYW5nZSBvciB5ZWxsb3cgaXMgc2lnbmFsLCByZWQgaXMgNSBWLCBicm93biBvciBibGFjayBpcyBHTkQuPC90ZXh0Pgo8L3N2Zz4K" class="figure">
+  <p>Saved separately as <code>pan_tilt_wiring_diagram_esp8266.png</code>.</p>
+  </details>
+
+  <h3>Pin table</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>From</th><th>To</th><th>Job</th></tr></thead>
+    <tbody>
+      <tr><td>ESP32: GPIO18<br>ESP8266: D1 (GPIO5)</td><td>Pan servo signal (orange or yellow)</td><td>Pan angle</td></tr>
+      <tr><td>ESP32: GPIO19<br>ESP8266: D2 (GPIO4)</td><td>Tilt servo signal (orange or yellow)</td><td>Tilt angle</td></tr>
+      <tr><td>Breakout VBUS (red lead)</td><td>+ rail, then both servos’ red wire</td><td>Servo power</td></tr>
+      <tr><td>Breakout GND (black lead)</td><td>− rail, then both servos’ brown or black wire</td><td>Servo ground</td></tr>
+      <tr><td>Board GND</td><td>− rail</td><td>Common ground</td></tr>
+      <tr><td>470 µF capacitor</td><td>+ rail (long leg), − rail (stripe)</td><td>Absorbs current spikes</td></tr>
+    </tbody>
+  </table></div>
+  <p>Check the wire colours of your own servos. Colours vary between makers. The ESP32 GPIOs avoid boot-strapping, flash, and input-only pins. The ESP8266 pins D1 and D2 avoid its boot pins (GPIO0, GPIO2, GPIO15). Pin labels on other ESP8266 boards can differ, so match the GPIO numbers.</p>
+
+  <h3>Power budget (write the numbers in)</h3>
+  <details class="chk">
+<summary>Checklist (4 items)</summary>
+<ul class="check">
+    <li><label><input type="checkbox"><span>Servo voltage: your servos’ rated range is on the datasheet. The power bank through the breakout gives about 5 V, which fits.</span></label></li>
+    <li><label><input type="checkbox"><span>Servo current: look up the stall current. Micro servos often stall near 0.5 to 0.7 A each, so two can pull over 1 A. Moving without load takes much less.</span></label></li>
+    <li><label><input type="checkbox"><span>The servo rail never comes from the board’s 3V3 pin. That regulator can’t supply it, and the board would reset.</span></label></li>
+    <li><label><input type="checkbox"><span>Some power banks switch off when the current draw is low. If yours does, use its always-on mode or another bank.</span></label></li>
+  </ul>
+</details>
+  <div class="gate"><label><input type="checkbox"><span><b>Gate: </b>pin table and power budget are filled in, and you can say where each supply comes from.</span></label></div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Step 2: Prompt the AI (with step 1)</summary>
+<div class="secbody">
+  <p>Paste the prompt for your board into your AI assistant. Notice what it contains: the exact board, the exact pins, the limits, and a request for assumptions.</p>
+  <details class="var">
+    <summary>Prompt for the ESP32 (main choice)</summary>
+    <button class="copy" data-target="prompt32">Copy prompt</button>
+  <pre class="wrap-text" id="prompt32">I'm building a pan-tilt platform. Write an Arduino sketch for an ESP32 DevKit (Arduino-ESP32 core 3.x) that moves two hobby servos from a web page on my phone.
+
+Hardware facts:
+- Pan servo signal = GPIO18. Tilt servo signal = GPIO19.
+- The servos are powered from a separate 5 V supply (USB power bank). Grounds are common. ESP32 logic is 3.3 V.
+- Micro servos (SG90 type), 50 Hz PWM. The exact pulse range is uncertain, so make it a named constant (start with 500 to 2400 microseconds).
+- Mechanical limits: pan 30 to 150 degrees, tilt 50 to 130 degrees. Never command outside them.
+
+Requirements:
+- The ESP32 creates its own Wi-Fi access point (SSID PT-xx, WPA2 password, channel 1).
+- The web page is served from the ESP32 itself and has a pan slider, a tilt slider and a centre button.
+- The page sends the target angles every 200 ms. If no command arrives for 1.2 s, the platform moves back to the centre.
+- Movement is slew-limited to 90 degrees per second. No instant jumps.
+- Both servos go to the centre (90 degrees) at boot.
+- Limits are enforced in firmware, not only in the page.
+- No delay() calls in the main loop.
+
+Before the code, list every assumption you are making about the hardware and the libraries.
+</pre>
+  </details>
+  <details class="var">
+    <summary>Prompt for the ESP8266 (second choice)</summary>
+    <button class="copy" data-target="prompt8266">Copy prompt</button>
+  <pre class="wrap-text" id="prompt8266">I'm building a pan-tilt platform. Write an Arduino sketch for an ESP8266 (NodeMCU or Wemos D1 mini, ESP8266 Arduino core) that moves two hobby servos from a web page on my phone.
+
+Hardware facts:
+- Pan servo signal = D1 (GPIO5). Tilt servo signal = D2 (GPIO4). No other pins.
+- The servos are powered from a separate 5 V supply (USB power bank). Grounds are common. ESP8266 logic is 3.3 V.
+- Micro servos (SG90 type), 50 Hz PWM. Use the built-in Servo library with writeMicroseconds. The exact pulse range is uncertain, so make it a named constant (start with 500 to 2400 microseconds).
+- Mechanical limits: pan 30 to 150 degrees, tilt 50 to 130 degrees. Never command outside them.
+- The page is stored in flash, so serve it in a way that is safe for PROGMEM data.
+
+Requirements:
+- The ESP8266 creates its own Wi-Fi access point (SSID PT-xx, WPA2 password, channel 1).
+- The web page is served from the ESP8266 itself and has a pan slider, a tilt slider and a centre button.
+- The page sends the target angles every 200 ms. If no command arrives for 1.2 s, the platform moves back to the centre.
+- Movement is slew-limited to 90 degrees per second. No instant jumps.
+- Both servos go to the centre (90 degrees) at boot.
+- Limits are enforced in firmware, not only in the page.
+- No delay() calls in the main loop.
+
+Before the code, list every assumption you are making about the hardware and the libraries.
+</pre>
+  </details>
+  <p>Read the assumptions list before you read the code. Every assumption is a hypothesis to check.</p>
+  <div class="note"><strong>Expect at least one surprise.</strong> Many AI answers use the older ESP32 PWM functions (<code>ledcSetup</code>, <code>ledcAttachPin</code>) or a servo library you haven’t installed. On core 3.x the old functions don’t exist, and you get a compile error. For the ESP8266, a classic crash comes from sending a page stored in flash with the wrong function. Servos also differ in pulse range: a value that is right for one servo can strain another.</div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Step 3: Wire the breadboard (20 min)</summary>
+<div class="secbody">
+  <details class="chk">
+<summary>Checklist (7 items)</summary>
+<ul class="check">
+    <li><label><input type="checkbox"><span>Plug the board into the breadboard so the two pin rows sit on opposite sides of the centre gap. USB cable not connected yet.</span></label></li>
+    <li><label><input type="checkbox"><span>Place the two 3-pin header strips. Servo plugs will go on them: GND, 5 V, signal.</span></label></li>
+    <li><label><input type="checkbox"><span>Connect the breakout’s red lead to the + rail and its black lead to the − rail (bank unplugged).</span></label></li>
+    <li><label><input type="checkbox"><span>Fit the 470 µF capacitor across the rails, long leg to +.</span></label></li>
+    <li><label><input type="checkbox"><span>Wire each header strip: GND to the − rail, 5 V to the + rail, signal to the pan or tilt pin from the pin table.</span></label></li>
+    <li><label><input type="checkbox"><span>Wire the board’s GND to the − rail.</span></label></li>
+    <li><label><input type="checkbox"><span>Multimeter on continuity, bank unplugged: no beep between + and − rails (a capacitor can beep briefly, then settle), and no beep between either signal pin and the + rail.</span></label></li>
+  </ul>
+</details>
+  <div class="gate"><label><input type="checkbox"><span><b>Gate: </b>every wire matches the pin table, and there is no short between + and −.</span></label></div>
+  <div class="note"><strong>Optional soldering station (10 min, rotating).</strong> Solder one 3-pin header strip onto a small piece of perfboard (three joints) and check each joint with the multimeter. Keep it: it is your take-home servo connector. People who skip the station use the pre-placed strips, so nobody is blocked.</div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Step 4: Gated power-up, servos unplugged (10 min)</summary>
+<div class="secbody">
+  <ol>
+    <li>Connect the board to your laptop with the USB cable. The board LED lights.</li>
+    <li>Measure 3V3 to GND on the board. You expect about 3.3 V.</li>
+    <li>Plug in the power bank. Measure + rail to − rail. You expect about 5 V.</li>
+    <li>Wait 30 seconds. Touch the capacitor, the breakout, and the board. Nothing should be warm.</li>
+    <li>Unplug the power bank again.</li>
+  </ol>
+  <div class="gate"><label><input type="checkbox"><span><b>Gate: </b>3V3 and the 5 V rail read as expected, nothing is warm, nothing resets.</span></label></div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Step 5: Review, flash, load the page (20 min)</summary>
+<div class="secbody">
+  <p>Before you flash, check the AI’s code against this list, line by line.</p>
+  <details class="chk">
+<summary>Checklist (7 items)</summary>
+<ul class="check">
+    <li><label><input type="checkbox"><span>Pins match the pin table for your board, and nothing else is used.</span></label></li>
+    <li><label><input type="checkbox"><span>The servo calls compile on your core: <code>ledcAttach</code> on ESP32 core 3.x, or the Servo library on ESP8266.</span></label></li>
+    <li><label><input type="checkbox"><span>Pulse range is a named constant, not a hidden number.</span></label></li>
+    <li><label><input type="checkbox"><span>Limits are applied in firmware, not only in the page.</span></label></li>
+    <li><label><input type="checkbox"><span>Movement is slew-limited. There is no instant jump.</span></label></li>
+    <li><label><input type="checkbox"><span>There is a failsafe: the platform returns to centre when commands stop.</span></label></li>
+    <li><label><input type="checkbox"><span>No <code>delay()</code> in the main loop. The SSID is unique and the default password is changed.</span></label></li>
+  </ul>
+</details>
+  <p>Stuck? The reference sketches at the end match this wiring. Compare yours with the right one and find the differences.</p>
+  <details class="var" open>
+    <summary>Board settings: ESP32 (main choice)</summary>
+    <p>Choose the board <em>ESP32 Dev Module</em>, with the Arduino-ESP32 core 3.x installed.</p>
+  </details>
+  <details class="var">
+    <summary>Board settings: ESP8266 (second choice)</summary>
+    <p>Choose <em>NodeMCU 1.0</em> or <em>LOLIN (WEMOS) D1 mini</em>, with the ESP8266 core installed.</p>
+  </details>
+  <details class="chk">
+<summary>Checklist (2 items)</summary>
+<ul class="check">
+    <li><label><input type="checkbox"><span>Flash the sketch. Open the Serial Monitor at 115200: you see the Wi-Fi name and address. (On an ESP8266 you may see a line of garbled text first, which is its boot message at another speed.)</span></label></li>
+    <li><label><input type="checkbox"><span>On your phone, join the unit’s Wi-Fi and open <code>http://192.168.4.1</code>. Two sliders appear.</span></label></li>
+  </ul>
+</details>
+  <div class="gate"><label><input type="checkbox"><span><b>Gate: </b>the page loads and shows the limits from the firmware (for example pan 30 to 150).</span></label></div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Step 6: Centre, fit, calibrate (20 min)</summary>
+<div class="secbody">
+  <ol>
+    <li>Unplug the board’s USB cable and the power bank. Plug the servos into the header strips (check the orientation: GND, 5 V, signal).</li>
+    <li>Plug in the power bank, then the USB cable. Both servos move to the centre. Keep fingers clear.</li>
+    <li>With the power still on, fit the servo horns and the bracket so the platform faces straight ahead and level.</li>
+    <li>Move the sliders slowly towards each end. Listen. A servo that buzzes or strains is pushing against a stop.</li>
+    <li>Note the angles where the bracket first touches. Set <code>PAN_MIN</code>, <code>PAN_MAX</code>, <code>TILT_MIN</code>, and <code>TILT_MAX</code> at least 10° inside those stops. Re-flash.</li>
+    <li>If a servo moves the wrong way, flip <code>PAN_INVERT</code> or <code>TILT_INVERT</code>. Don’t swap wires.</li>
+  </ol>
+  <div class="gate"><label><input type="checkbox"><span><b>Gate: </b>both sliders run end to end with no buzzing, no strain, and no warm servo.</span></label></div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Step 7: Break it on purpose (15 min)</summary>
+<div class="secbody">
+  <details class="chk">
+<summary>Checklist (5 items)</summary>
+<ul class="check">
+    <li><label><input type="checkbox"><span>Link loss: move the platform off-centre, then turn the phone’s Wi-Fi off. It returns to the centre within about two seconds.</span></label></li>
+    <li><label><input type="checkbox"><span>Press the board’s reset button: the platform goes to the centre and waits.</span></label></li>
+    <li><label><input type="checkbox"><span>Jump a slider from one end to the other. The platform moves smoothly, not instantly.</span></label></li>
+    <li><label><input type="checkbox"><span>Ask the AI: “what happens if the page sends 400 degrees?” Then test it.</span></label></li>
+    <li><label><input type="checkbox"><span>Write down one thing the AI got wrong or left out, and how you found it.</span></label></li>
+  </ul>
+</details>
+  <div class="gate"><label><input type="checkbox"><span><b>Gate: </b>cut the link and the platform returns to centre. Reboot it and it stays at centre. Both proven.</span></label></div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Running without the laptop</summary>
+<div class="secbody">
+  <p>Once the sketch is uploaded it lives in the board’s flash memory and starts by itself whenever the board gets power. The laptop is only needed to upload code and to read the Serial Monitor. Your phone does the controlling over the board’s own Wi-Fi network.</p>
+  <ul>
+    <li>Power the board from a second USB power bank, a bank with two ports, or a USB charger, through its USB port.</li>
+    <li>The servo rail stays as it is. Keep the board’s GND wire to the − rail, because both supplies need a common ground.</li>
+    <li>Switch on the servo power first, then the board’s supply.</li>
+    <li>Some power banks switch off when the draw is very low, and a plain ESP32 or ESP8266 draws little. Leave it running for several minutes to check, or use a wall charger.</li>
+    <li>You lose the Serial Monitor, so test everything with the laptop first. The address is still <code>192.168.4.1</code>.</li>
+    <li>Repeat the failsafe test from step 7 on the standalone supply.</li>
+  </ul>
+  <p>Avoid powering the board from the servo rail. Servo spikes can make it reset, and the two supplies are the point of the exercise.</p>
+</div>
+</details>
+
+<details class="sec">
+<summary>Troubleshooting</summary>
+<div class="secbody">
+  <div class="tablewrap"><table>
+    <thead><tr><th>Symptom</th><th>Likely cause</th><th>Try</th></tr></thead>
+    <tbody>
+      <tr><td>Upload fails or board not found</td><td>Charge-only USB cable, missing driver, or board not in boot mode</td><td>Swap cable, install the CP210x or CH340 driver, hold BOOT (ESP32) while uploading</td></tr>
+      <tr><td>Compile error: <code>ledcSetup</code> or <code>ledcAttachPin</code> not declared (ESP32)</td><td>The AI wrote code for the older core</td><td>Ask for core 3.x code</td></tr>
+      <tr><td>No voltage on the servo rail</td><td>The breakout has no CC resistors, or the bank needs a different adapter</td><td>Measure at the breakout first. Check CC1 and CC2 to GND read about 5.1 kΩ, or try another bank or the AA pack</td></tr>
+      <tr><td>Servos stop responding after a while</td><td>Power bank switched itself off</td><td>Use its always-on mode or another bank</td></tr>
+      <tr><td>Servos jitter</td><td>Noisy 5 V rail, capacitor missing or reversed, long wires</td><td>Check the capacitor and polarity, shorten wires, check common ground</td></tr>
+      <tr><td>Servos twitch when Wi-Fi is busy (ESP8266)</td><td>Timer-based servo pulses are disturbed by Wi-Fi</td><td>Keep the page open on one phone only, shorten the wires, or switch to the ESP32</td></tr>
+      <tr><td>Board crashes when the page loads (ESP8266)</td><td>A page stored in flash was sent with the wrong function</td><td>Use <code>send_P</code> as in the reference sketch</td></tr>
+      <tr><td>Board resets when servos move</td><td>Servos powered through the board, or a weak power bank</td><td>Keep the separate servo rail, try another bank</td></tr>
+      <tr><td>Servo buzzes at one end</td><td>Commanded past the mechanical stop</td><td>Narrow the limits</td></tr>
+      <tr><td>Page loads but nothing moves</td><td>Signal wire on the wrong pin, servo plug reversed, rail not powered</td><td>Re-check the pin table and measure the rail</td></tr>
+      <tr><td>Moves the wrong way</td><td>Servo mounted the other way round</td><td>Flip the invert constant</td></tr>
+      <tr><td>Platform returns to centre on its own</td><td>That is the failsafe: the page is closed, the phone locked, or the link dropped</td><td>Keep the page open</td></tr>
+      <tr><td>Page doesn’t load</td><td>Phone is on mobile data or another network</td><td>Join the unit’s Wi-Fi, turn off mobile data, open <code>http://192.168.4.1</code></td></tr>
+    </tbody>
+  </table></div>
+</div>
+</details>
+
+<details class="sec">
+<summary>Print notes for the bracket</summary>
+<div class="secbody">
+  <ul>
+    <li>Several free pan-tilt brackets for SG90 and MG90S servos exist on Thingiverse, Printables, Cults3D, MakerWorld, and CGTrader. Search for “pan tilt SG90” or “pan tilt MG90S”, download from the original site, and check each model’s license before printing a batch.</li>
+    <li>Measure your servos before printing, and print one fit-test copy first. Thin screw holes on some designs crack.</li>
+    <li>Make the bracket’s hard stops sit a little beyond the firmware limits (the tutorial assumes about pan 30 to 150 and tilt 50 to 130). Firmware stops first, plastic second. Some designs tilt more downward than upward, so adjust the tilt limits to match.</li>
+    <li>Leave a cable channel and a screw-down plate for the breadboard and board on the base.</li>
+    <li>Add a mounting plate on the tilt arm for a small camera if you plan the add-on.</li>
+    <li>Print one or two spares, and time one print before you multiply by the number of kits.</li>
+  </ul>
+</div>
+</details>
+
+<details class="sec">
+<summary>Take-home upgrades</summary>
+<div class="secbody">
+  <ul>
+    <li>Solder the circuit onto perfboard and remove the breadboard.</li>
+    <li>Add the ESP32-CAM and live video (separate guide, ESP32 only).</li>
+    <li>Add a distance sensor and a small agent with three tools.</li>
+    <li>Add a physical power switch and a fuse on the servo rail.</li>
+  </ul>
+</div>
+</details>
+
+<details class="sec">
+<summary>Reference sketches</summary>
+<div class="secbody">
+  <p>Compare the AI’s code with the sketch for your board.</p>
+  <details class="var">
+    <summary>ESP32 sketch (main choice): PanTilt_Workshop.ino</summary>
+    <button class="copy" data-target="sketch32">Copy sketch</button>
+    <pre id="sketch32"><code>// Pan-tilt workshop sketch: ESP32 + 2 hobby servos, aimed from a phone browser.
+// Needs: Arduino-ESP32 core 3.x (ledcAttach / ledcWrite take a pin number).
+//
+// Safety design:
+//  - Angle limits are enforced here in firmware, not only in the web page.
+//  - Movement is slew-limited, so the servos never jump to a new angle.
+//  - The phone sends the target every 200 ms. If commands stop for FAILSAFE_MS,
+//    the platform moves back to the centre by itself.
+//  - Both servos go to the centre at boot.
+
+#include &lt;WiFi.h&gt;
+#include &lt;WebServer.h&gt;
+
+// ---------- Wiring (keep in sync with the pin table) ----------
+const int PAN_PIN  = 18;
+const int TILT_PIN = 19;
+
+// ---------- Settings ----------
+const char*   AP_SSID    = "PT-01";           // unique per unit
+const char*   AP_PASS    = "change-me-1234";  // change this (8+ characters)
+const uint8_t AP_CHANNEL = 1;                 // use 1, 6 or 11
+
+// Angle limits in degrees. Calibrate on your bracket, then stay inside the hard stops.
+const float PAN_MIN  = 30, PAN_MAX  = 150, PAN_CENTER  = 90;
+const float TILT_MIN = 50, TILT_MAX = 130, TILT_CENTER = 90;
+
+// If a servo moves the wrong way, flip it here instead of rewiring.
+const bool PAN_INVERT  = false;
+const bool TILT_INVERT = false;
+
+// Pulse width (microseconds) that maps to 0 and 180 degrees. Servos differ: calibrate.
+const int PULSE_MIN_US = 500;
+const int PULSE_MAX_US = 2400;
+
+const float         SLEW_DEG_PER_S = 90.0;  // maximum speed
+const unsigned long FAILSAFE_MS    = 1200;  // no command for this long: go to centre
+const unsigned long STEP_MS        = 20;    // control step
+
+const int PWM_FREQ = 50;  // servo frame rate in Hz
+const int PWM_BITS = 14;  // duty resolution
+
+WebServer server(80);
+float curPan = PAN_CENTER, curTilt = TILT_CENTER;
+float tgtPan = PAN_CENTER, tgtTilt = TILT_CENTER;
+unsigned long lastCmd = 0;
+unsigned long lastStep = 0;
+
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"&gt;
+&lt;title&gt;Pan-tilt&lt;/title&gt;
+&lt;style&gt;
+  body { font-family: sans-serif; text-align: center; margin: 0; padding: 16px;
+         background: #101820; color: #fff; }
+  .row { max-width: 360px; margin: 28px auto; text-align: left; }
+  input[type=range] { width: 100%; height: 40px; accent-color: #2b7a57; }
+  button { font-size: 1.2rem; padding: 14px 28px; border: 0; border-radius: 12px;
+           background: #2b7a57; color: #fff; }
+  #status { color: #9ab; min-height: 1.5em; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;Pan-tilt&lt;/h1&gt;
+&lt;div id="status"&gt;Connecting&lt;/div&gt;
+&lt;div class="row"&gt;&lt;div&gt;Pan: &lt;span id="pv"&gt;90&lt;/span&gt;&amp;deg;&lt;/div&gt;
+  &lt;input type="range" id="pan" min="0" max="180" value="90"&gt;&lt;/div&gt;
+&lt;div class="row"&gt;&lt;div&gt;Tilt: &lt;span id="tv"&gt;90&lt;/span&gt;&amp;deg;&lt;/div&gt;
+  &lt;input type="range" id="tilt" min="0" max="180" value="90"&gt;&lt;/div&gt;
+&lt;button id="centre"&gt;Centre&lt;/button&gt;
+&lt;script&gt;
+  var pan = 90, tilt = 90, pc = 90, tc = 90;
+  var panEl = document.getElementById("pan"), tiltEl = document.getElementById("tilt");
+  var pv = document.getElementById("pv"), tv = document.getElementById("tv");
+  var status = document.getElementById("status");
+  function show() { pv.textContent = pan; tv.textContent = tilt; }
+  function send() {
+    fetch("/aim?p=" + pan + "&amp;t=" + tilt)
+      .then(function () { status.textContent = "Connected"; })
+      .catch(function () { status.textContent = "No connection"; });
+  }
+  fetch("/info").then(function (r) { return r.json(); }).then(function (i) {
+    panEl.min = i.pmin; panEl.max = i.pmax; tiltEl.min = i.tmin; tiltEl.max = i.tmax;
+    pc = i.pc; tc = i.tc; pan = pc; tilt = tc;
+    panEl.value = pan; tiltEl.value = tilt; show();
+  });
+  panEl.addEventListener("input", function () { pan = Number(panEl.value); show(); });
+  tiltEl.addEventListener("input", function () { tilt = Number(tiltEl.value); show(); });
+  document.getElementById("centre").addEventListener("click", function () {
+    pan = pc; tilt = tc; panEl.value = pan; tiltEl.value = tilt; show();
+  });
+  setInterval(send, 200);
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+)rawliteral";
+
+// Write one servo. deg is 0..180 before inversion.
+void writeServo(int pin, float deg, bool invert) {
+  if (invert) deg = 180.0 - deg;
+  deg = constrain(deg, 0.0, 180.0);
+  float us = PULSE_MIN_US + (PULSE_MAX_US - PULSE_MIN_US) * deg / 180.0;
+  uint32_t duty = (uint32_t)(us * ((1 &lt;&lt; PWM_BITS) - 1) / 20000.0);  // 20 ms frame
+  ledcWrite(pin, duty);
+}
+
+float stepToward(float cur, float tgt, float maxStep) {
+  if (tgt &gt; cur) return min(cur + maxStep, tgt);
+  return max(cur - maxStep, tgt);
+}
+
+void handleRoot() {
+  server.send(200, "text/html", INDEX_HTML);
+}
+
+void handleInfo() {
+  char buf[112];
+  snprintf(buf, sizeof(buf),
+           "{\"pmin\":%d,\"pmax\":%d,\"tmin\":%d,\"tmax\":%d,\"pc\":%d,\"tc\":%d}",
+           (int)PAN_MIN, (int)PAN_MAX, (int)TILT_MIN, (int)TILT_MAX,
+           (int)PAN_CENTER, (int)TILT_CENTER);
+  server.send(200, "application/json", buf);
+}
+
+void handleAim() {
+  if (!server.hasArg("p") || !server.hasArg("t")) {
+    server.send(400, "text/plain", "need p and t");
+    return;
+  }
+  tgtPan  = constrain((float)server.arg("p").toInt(), PAN_MIN, PAN_MAX);
+  tgtTilt = constrain((float)server.arg("t").toInt(), TILT_MIN, TILT_MAX);
+  lastCmd = millis();
+  server.send(200, "text/plain", "OK");
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  bool ok1 = ledcAttach(PAN_PIN, PWM_FREQ, PWM_BITS);
+  bool ok2 = ledcAttach(TILT_PIN, PWM_FREQ, PWM_BITS);
+  if (!ok1 || !ok2) Serial.println("PWM setup failed: check pins and core version");
+  writeServo(PAN_PIN, curPan, PAN_INVERT);     // centre at boot
+  writeServo(TILT_PIN, curTilt, TILT_INVERT);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(AP_SSID, AP_PASS, AP_CHANNEL);
+  Serial.print("Wi-Fi: ");
+  Serial.print(AP_SSID);
+  Serial.print("  open http://");
+  Serial.println(WiFi.softAPIP());
+
+  server.on("/", handleRoot);
+  server.on("/info", handleInfo);
+  server.on("/aim", handleAim);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+
+  unsigned long now = millis();
+  if (now - lastStep &gt;= STEP_MS) {
+    float dt = (now - lastStep) / 1000.0;
+    lastStep = now;
+
+    if (now - lastCmd &gt; FAILSAFE_MS) {  // commands stopped: return to centre
+      tgtPan = PAN_CENTER;
+      tgtTilt = TILT_CENTER;
+    }
+
+    float maxStep = SLEW_DEG_PER_S * dt;
+    curPan  = stepToward(curPan, tgtPan, maxStep);
+    curTilt = stepToward(curTilt, tgtTilt, maxStep);
+    writeServo(PAN_PIN, curPan, PAN_INVERT);
+    writeServo(TILT_PIN, curTilt, TILT_INVERT);
+  }
+}
+</code></pre>
+  </details>
+  <details class="var">
+    <summary>ESP8266 sketch (second choice): PanTilt_Workshop_ESP8266.ino</summary>
+    <button class="copy" data-target="sketch8266">Copy sketch</button>
+    <pre id="sketch8266"><code>// Pan-tilt workshop sketch: ESP8266 (NodeMCU / Wemos D1 mini) + 2 hobby servos, phone browser.
+// Needs: ESP8266 Arduino core and the built-in Servo library.
+// Board in the Arduino IDE: "NodeMCU 1.0 (ESP-12E Module)" or "LOLIN(WEMOS) D1 R2 &amp; mini".
+//
+// Safety design (same as the ESP32 sketch):
+//  - Angle limits are enforced here in firmware, not only in the web page.
+//  - Movement is slew-limited, so the servos never jump to a new angle.
+//  - The phone sends the target every 200 ms. If commands stop for FAILSAFE_MS,
+//    the platform moves back to the centre by itself.
+//  - Both servos go to the centre at boot.
+
+#include &lt;ESP8266WiFi.h&gt;
+#include &lt;ESP8266WebServer.h&gt;
+#include &lt;Servo.h&gt;
+
+// ---------- Wiring (keep in sync with the pin table) ----------
+const int PAN_PIN  = 5;  // D1 = GPIO5
+const int TILT_PIN = 4;  // D2 = GPIO4
+
+// ---------- Settings ----------
+const char*   AP_SSID    = "PT-01";           // unique per unit
+const char*   AP_PASS    = "change-me-1234";  // change this (8+ characters)
+const uint8_t AP_CHANNEL = 1;                 // use 1, 6 or 11
+
+// Angle limits in degrees. Calibrate on your bracket, then stay inside the hard stops.
+const float PAN_MIN  = 30, PAN_MAX  = 150, PAN_CENTER  = 90;
+const float TILT_MIN = 50, TILT_MAX = 130, TILT_CENTER = 90;
+
+// If a servo moves the wrong way, flip it here instead of rewiring.
+const bool PAN_INVERT  = false;
+const bool TILT_INVERT = false;
+
+// Pulse width (microseconds) that maps to 0 and 180 degrees. Servos differ: calibrate.
+const int PULSE_MIN_US = 500;
+const int PULSE_MAX_US = 2400;
+
+const float         SLEW_DEG_PER_S = 90.0;  // maximum speed
+const unsigned long FAILSAFE_MS    = 1200;  // no command for this long: go to centre
+const unsigned long STEP_MS        = 20;    // control step
+
+ESP8266WebServer server(80);
+Servo panServo, tiltServo;
+float curPan = PAN_CENTER, curTilt = TILT_CENTER;
+float tgtPan = PAN_CENTER, tgtTilt = TILT_CENTER;
+unsigned long lastCmd = 0;
+unsigned long lastStep = 0;
+
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"&gt;
+&lt;title&gt;Pan-tilt&lt;/title&gt;
+&lt;style&gt;
+  body { font-family: sans-serif; text-align: center; margin: 0; padding: 16px;
+         background: #101820; color: #fff; }
+  .row { max-width: 360px; margin: 28px auto; text-align: left; }
+  input[type=range] { width: 100%; height: 40px; accent-color: #2b7a57; }
+  button { font-size: 1.2rem; padding: 14px 28px; border: 0; border-radius: 12px;
+           background: #2b7a57; color: #fff; }
+  #status { color: #9ab; min-height: 1.5em; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;Pan-tilt&lt;/h1&gt;
+&lt;div id="status"&gt;Connecting&lt;/div&gt;
+&lt;div class="row"&gt;&lt;div&gt;Pan: &lt;span id="pv"&gt;90&lt;/span&gt;&amp;deg;&lt;/div&gt;
+  &lt;input type="range" id="pan" min="0" max="180" value="90"&gt;&lt;/div&gt;
+&lt;div class="row"&gt;&lt;div&gt;Tilt: &lt;span id="tv"&gt;90&lt;/span&gt;&amp;deg;&lt;/div&gt;
+  &lt;input type="range" id="tilt" min="0" max="180" value="90"&gt;&lt;/div&gt;
+&lt;button id="centre"&gt;Centre&lt;/button&gt;
+&lt;script&gt;
+  var pan = 90, tilt = 90, pc = 90, tc = 90;
+  var panEl = document.getElementById("pan"), tiltEl = document.getElementById("tilt");
+  var pv = document.getElementById("pv"), tv = document.getElementById("tv");
+  var status = document.getElementById("status");
+  function show() { pv.textContent = pan; tv.textContent = tilt; }
+  function send() {
+    fetch("/aim?p=" + pan + "&amp;t=" + tilt)
+      .then(function () { status.textContent = "Connected"; })
+      .catch(function () { status.textContent = "No connection"; });
+  }
+  fetch("/info").then(function (r) { return r.json(); }).then(function (i) {
+    panEl.min = i.pmin; panEl.max = i.pmax; tiltEl.min = i.tmin; tiltEl.max = i.tmax;
+    pc = i.pc; tc = i.tc; pan = pc; tilt = tc;
+    panEl.value = pan; tiltEl.value = tilt; show();
+  });
+  panEl.addEventListener("input", function () { pan = Number(panEl.value); show(); });
+  tiltEl.addEventListener("input", function () { tilt = Number(tiltEl.value); show(); });
+  document.getElementById("centre").addEventListener("click", function () {
+    pan = pc; tilt = tc; panEl.value = pan; tiltEl.value = tilt; show();
+  });
+  setInterval(send, 200);
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+)rawliteral";
+
+// Write one servo. deg is 0..180 before inversion.
+void writeServo(Servo &amp;servo, float deg, bool invert) {
+  if (invert) deg = 180.0 - deg;
+  deg = constrain(deg, 0.0, 180.0);
+  int us = PULSE_MIN_US + (int)((PULSE_MAX_US - PULSE_MIN_US) * deg / 180.0);
+  servo.writeMicroseconds(us);
+}
+
+float stepToward(float cur, float tgt, float maxStep) {
+  if (tgt &gt; cur) return min(cur + maxStep, tgt);
+  return max(cur - maxStep, tgt);
+}
+
+void handleRoot() {
+  server.send_P(200, "text/html", INDEX_HTML);  // page lives in flash, so use send_P
+}
+
+void handleInfo() {
+  char buf[112];
+  snprintf(buf, sizeof(buf),
+           "{\"pmin\":%d,\"pmax\":%d,\"tmin\":%d,\"tmax\":%d,\"pc\":%d,\"tc\":%d}",
+           (int)PAN_MIN, (int)PAN_MAX, (int)TILT_MIN, (int)TILT_MAX,
+           (int)PAN_CENTER, (int)TILT_CENTER);
+  server.send(200, "application/json", buf);
+}
+
+void handleAim() {
+  if (!server.hasArg("p") || !server.hasArg("t")) {
+    server.send(400, "text/plain", "need p and t");
+    return;
+  }
+  tgtPan  = constrain((float)server.arg("p").toInt(), PAN_MIN, PAN_MAX);
+  tgtTilt = constrain((float)server.arg("t").toInt(), TILT_MIN, TILT_MAX);
+  lastCmd = millis();
+  server.send(200, "text/plain", "OK");
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  panServo.attach(PAN_PIN, PULSE_MIN_US, PULSE_MAX_US);
+  tiltServo.attach(TILT_PIN, PULSE_MIN_US, PULSE_MAX_US);
+  writeServo(panServo, curPan, PAN_INVERT);     // centre at boot
+  writeServo(tiltServo, curTilt, TILT_INVERT);
+
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(AP_SSID, AP_PASS, AP_CHANNEL);
+  Serial.println();
+  Serial.print("Wi-Fi: ");
+  Serial.print(AP_SSID);
+  Serial.print("  open http://");
+  Serial.println(WiFi.softAPIP());
+
+  server.on("/", handleRoot);
+  server.on("/info", handleInfo);
+  server.on("/aim", handleAim);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+
+  unsigned long now = millis();
+  if (now - lastStep &gt;= STEP_MS) {
+    float dt = (now - lastStep) / 1000.0;
+    lastStep = now;
+
+    if (now - lastCmd &gt; FAILSAFE_MS) {  // commands stopped: return to centre
+      tgtPan = PAN_CENTER;
+      tgtTilt = TILT_CENTER;
+    }
+
+    float maxStep = SLEW_DEG_PER_S * dt;
+    curPan  = stepToward(curPan, tgtPan, maxStep);
+    curTilt = stepToward(curTilt, tgtTilt, maxStep);
+    writeServo(panServo, curPan, PAN_INVERT);
+    writeServo(tiltServo, curTilt, TILT_INVERT);
+  }
+}
+</code></pre>
+  </details>
+</div>
+</details>
+
+<details class="sec">
+<summary>Instructor prep</summary>
+<div class="secbody">
+  <details class="chk">
+<summary>Checklist (8 items)</summary>
+<ul class="check">
+    <li><label><input type="checkbox"><span>Print the brackets, bases, and spares. Time one print first.</span></label></li>
+    <li><label><input type="checkbox"><span>Prepare the USB-C breakouts: check or fit the two 5.1 kΩ CC resistors, identify VBUS, fit red and black leads, and measure about 5 V on every power-bank model you will use.</span></label></li>
+    <li><label><input type="checkbox"><span>Place the header strips and test every servo, horn, and screw.</span></label></li>
+    <li><label><input type="checkbox"><span>Flash a blink sketch on every board and label each unit with its SSID and channel (rotate 1, 6, 11).</span></label></li>
+    <li><label><input type="checkbox"><span>Test the full build with 10 or more units in a room of similar size. Check the 2.4 GHz behaviour and the power-bank shut-off behaviour. On ESP8266 units, watch for servo twitching.</span></label></li>
+    <li><label><input type="checkbox"><span>Ask the organisers about soldering irons (venue rules), power strips, tables, and a second helper.</span></label></li>
+    <li><label><input type="checkbox"><span>Pack spares: two full kits, servos, cables, a few extra breakouts, USB sticks with drivers and the reference sketches.</span></label></li>
+    <li><label><input type="checkbox"><span>Email setup instructions a week before: Arduino IDE, the board package for your board, USB driver, and a blink test.</span></label></li>
+  </ul>
+</details>
+</div>
+</details>
+
+
+</div>
+<script>
+  document.querySelectorAll(".copy[data-target]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const el = document.getElementById(btn.dataset.target);
+      if (!el) return;
+      const text = el.textContent;
+      const done = () => { const t = btn.textContent; btn.textContent = "Copied"; setTimeout(() => btn.textContent = t, 1200); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallback(el, done));
+      } else { fallback(el, done); }
+    });
+  });
+  document.getElementById("expandAll").addEventListener("click", () => document.querySelectorAll("details").forEach(d => d.open = true));
+  document.getElementById("collapseAll").addEventListener("click", () => document.querySelectorAll("details").forEach(d => d.open = false));
+  window.addEventListener("beforeprint", () => document.querySelectorAll("details").forEach(d => { d.dataset.was = d.open ? "1" : "0"; d.open = true; }));
+  window.addEventListener("afterprint", () => document.querySelectorAll("details").forEach(d => { d.open = d.dataset.was === "1"; }));
+  function fallback(el, done) {
+    const r = document.createRange(); r.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    try { document.execCommand("copy"); done(); } catch (e) {}
+  }
+</script>
+</body>
+</html>
